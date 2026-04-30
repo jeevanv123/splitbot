@@ -20,6 +20,14 @@ npm run db:migrate
 npm start                   # scan QR with WhatsApp → done
 ```
 
+## Database
+
+v1 uses SQLite by default (zero-config). The `DATABASE_URL` env var is reserved
+for a future Postgres adapter, but Postgres migrations need to be generated
+against a parallel `pg-core` schema (drizzle-kit cannot retranslate the SQLite
+schema across dialects). Postgres support is planned for phase 2; for now, run
+with SQLite.
+
 ## Commands
 
 - `/split <amount> <description> [with @u1 @u2] [except @u3]` — manual split
