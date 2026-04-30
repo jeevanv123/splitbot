@@ -1,0 +1,9 @@
+node_modules/
+dist/
+data/
+auth/
+.env
+*.log
+.DS_Store
+coverage/
+drizzle/migrations.json.tmp
