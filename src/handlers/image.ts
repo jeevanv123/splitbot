@@ -14,7 +14,7 @@ export async function handleImage(ctx: HandlerContext): Promise<HandlerResult> {
     return [{ to: ctx.msg.groupId, text: "Image too large (>5MB).", replyToRawId: ctx.msg.rawId }];
   }
 
-  const result = await extractBill(ctx.llm, ctx.msg.imageBuffer, "image/jpeg");
+  const result = await extractBill(ctx.llm, ctx.msg.imageBuffer, "image/jpeg", ctx.model);
   if (result.kind === "not_a_bill") {
     return [];   // silent
   }

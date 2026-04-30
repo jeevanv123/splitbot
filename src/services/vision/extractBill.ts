@@ -33,11 +33,12 @@ export async function extractBill(
   client: AnthropicLike,
   imageBuffer: Buffer,
   mediaType: string,
+  model: string,
 ): Promise<ExtractBillResult> {
   let text = "";
   try {
     const resp = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model,
       max_tokens: 2048,
       system: SYSTEM_PROMPT,
       messages: [{

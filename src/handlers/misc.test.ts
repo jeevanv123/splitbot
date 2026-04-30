@@ -37,7 +37,7 @@ describe("misc handlers", () => {
   });
 
   it("/upi sets the user's UPI id", async () => {
-    const ctx: HandlerContext = { db: db as any, llm, msg: dummyMsg(), groupMembers: [] };
+    const ctx: HandlerContext = { db: db as any, llm, model: "test-model", msg: dummyMsg(), groupMembers: [] };
     await handleUpi(ctx, { command: "upi", upiId: "anu@okhdfc" });
     const u = await getUser(db as any, "+a");
     expect(u?.upiId).toBe("anu@okhdfc");
@@ -51,6 +51,7 @@ describe("misc handlers", () => {
     });
     const ctx: HandlerContext = {
       db: db as any, llm,
+      model: "test-model",
       msg: dummyMsg({ senderId: "+b", senderDisplayName: "Beta" }),
       groupMembers: [],
     };
@@ -67,6 +68,7 @@ describe("misc handlers", () => {
     });
     const ctx: HandlerContext = {
       db: db as any, llm,
+      model: "test-model",
       msg: dummyMsg({ senderId: "+b", senderDisplayName: "Beta" }),
       groupMembers: [],
     };
@@ -82,14 +84,14 @@ describe("misc handlers", () => {
       bill: { items: [{ name: "pasta", pricePaise: 62000 }], taxPaise: 0, tipPaise: 0, totalPaise: 62000, currency: "INR" },
       imagePath: null,
     });
-    const ctx: HandlerContext = { db: db as any, llm, msg: dummyMsg(), groupMembers: [] };
+    const ctx: HandlerContext = { db: db as any, llm, model: "test-model", msg: dummyMsg(), groupMembers: [] };
     const replies = await handleBills(ctx);
     expect(replies[0]!.text).toContain("pasta");
     expect(replies[0]!.text).toContain("₹620");
   });
 
   it("/help returns usage info", async () => {
-    const ctx: HandlerContext = { db: db as any, llm, msg: dummyMsg(), groupMembers: [] };
+    const ctx: HandlerContext = { db: db as any, llm, model: "test-model", msg: dummyMsg(), groupMembers: [] };
     const replies = await handleHelp(ctx);
     expect(replies[0]!.text).toMatch(/\/split/);
     expect(replies[0]!.text).toMatch(/\/settle/);

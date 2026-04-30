@@ -30,7 +30,7 @@ export async function handleFreeText(ctx: HandlerContext): Promise<HandlerResult
       date: dateLabel(d.createdAt),
       topItems: d.bill.items.slice(0, 3).map((i) => i.name),
     }));
-    const r = await resolveDraft(ctx.llm, { message: ctx.msg.text, drafts: summaries });
+    const r = await resolveDraft(ctx.llm, { message: ctx.msg.text, drafts: summaries }, ctx.model);
     if (r.kind === "ambiguous") {
       const list = drafts.map((d) => `• ${rupees(d.bill.totalPaise)} from ${dateLabel(d.createdAt)} (${d.bill.items.map((i) => i.name).slice(0, 2).join(", ")})`).join("\n");
       return [{
@@ -52,7 +52,7 @@ export async function handleFreeText(ctx: HandlerContext): Promise<HandlerResult
     bill: target.bill,
     participants: ctx.groupMembers,
     assignmentText: ctx.msg.text,
-  });
+  }, ctx.model);
   if (result.kind === "error") {
     return [{
       to: ctx.msg.groupId,

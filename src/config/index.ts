@@ -1,11 +1,21 @@
 import { z } from "zod";
 
 const schema = z.object({
-  ANTHROPIC_API_KEY: z.string().min(1, "ANTHROPIC_API_KEY is required"),
   TELEGRAM_BOT_TOKEN: z.string().min(1, "TELEGRAM_BOT_TOKEN is required"),
+  LLM_PROVIDER: z.enum(["anthropic", "bedrock"]).default("anthropic"),
+  CLAUDE_MODEL: z.string().optional(),                  // override default model id
+  ANTHROPIC_API_KEY: z.string().optional(),             // required only when LLM_PROVIDER=anthropic
+  AWS_REGION: z.string().optional(),                    // required only when LLM_PROVIDER=bedrock
   DATABASE_URL: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
+}).superRefine((cfg, ctx) => {
+  if (cfg.LLM_PROVIDER === "anthropic" && !cfg.ANTHROPIC_API_KEY) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["ANTHROPIC_API_KEY"], message: "ANTHROPIC_API_KEY is required when LLM_PROVIDER=anthropic" });
+  }
+  if (cfg.LLM_PROVIDER === "bedrock" && !cfg.AWS_REGION) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["AWS_REGION"], message: "AWS_REGION is required when LLM_PROVIDER=bedrock" });
+  }
 });
 
 export type Config = z.infer<typeof schema>;

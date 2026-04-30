@@ -40,6 +40,16 @@ DATABASE_URL=postgres://splitbot:splitbot@postgres:5432/splitbot \
 
 > Note: Postgres support is wired through `DATABASE_URL` but the migrations are SQLite-flavored in v1. A parallel `pg-core` schema and Postgres migrations are planned for phase 2. For now, run with SQLite.
 
+## LLM provider
+
+Splitbot supports two ways to call Claude:
+
+**Anthropic API (default)** — set `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY=sk-ant-...`. Get a key at https://console.anthropic.com.
+
+**AWS Bedrock** — set `LLM_PROVIDER=bedrock` and `AWS_REGION=us-east-1` (or whatever region you've enabled Claude models in). AWS credentials come from the standard AWS chain (env vars, `~/.aws/credentials`, or an IAM role). You'll need to enable Anthropic Claude models in your Bedrock console first.
+
+You can override the model id with `CLAUDE_MODEL=...` if you want a non-default Claude version.
+
 ## Database
 
 Splitbot v1 uses SQLite by default (zero-config, perfect for self-host). Set `DATABASE_URL=postgres://...` to use Postgres in the future once the parallel pg schema lands (phase 2).

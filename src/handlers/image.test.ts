@@ -38,6 +38,7 @@ describe("handleImage", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: llmReturning(billJson) as any,
+      model: "test-model",
       msg: {
         kind: "image", groupId: "g1", senderId: "+a", senderDisplayName: "Anu",
         text: "", imageBuffer: Buffer.from("fake-jpeg"),
@@ -56,6 +57,7 @@ describe("handleImage", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: llmReturning(notBill) as any,
+      model: "test-model",
       msg: {
         kind: "image", groupId: "g1", senderId: "+a", senderDisplayName: "Anu",
         text: "", imageBuffer: Buffer.from("fake"),
@@ -72,6 +74,7 @@ describe("handleImage", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: llmReturning("{}") as any,
+      model: "test-model",
       msg: {
         kind: "image", groupId: null, senderId: "+a", senderDisplayName: "Anu",
         text: "", imageBuffer: Buffer.from("fake"),

@@ -6,6 +6,7 @@ import type { IncomingMessage, OutgoingMessage } from "../types/messages.js";
 export interface HandlerContext {
   db: Db;
   llm: VisionClient & IntentClient;
+  model: string;            // Claude model id (provider-specific)
   msg: IncomingMessage;
   groupMembers: { userId: string; displayName: string }[];   // null/[] for DM
 }

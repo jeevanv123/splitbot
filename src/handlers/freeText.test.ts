@@ -41,6 +41,7 @@ describe("handleFreeText", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: llmSequence() as any,
+      model: "test-model",
       msg: { kind: "text", groupId: "g1", senderId: "+a", senderDisplayName: "Anu", text: "hello", receivedAt: new Date(), rawId: "1" },
       groupMembers: [{ userId: "+a", displayName: "Anu" }, { userId: "+b", displayName: "Beta" }],
     };
@@ -63,6 +64,7 @@ describe("handleFreeText", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: llmSequence(assignmentJson) as any,
+      model: "test-model",
       msg: { kind: "text", groupId: "g1", senderId: "+a", senderDisplayName: "Anu", text: "split equally", receivedAt: new Date(), rawId: "1" },
       groupMembers: [{ userId: "+a", displayName: "Anu" }, { userId: "+b", displayName: "Beta" }],
     };

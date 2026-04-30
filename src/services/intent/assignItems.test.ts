@@ -36,7 +36,7 @@ describe("assignItems", () => {
       bill,
       participants,
       assignmentText: "Anu had pasta and wine, Rohit had pizza, Jeevan only had tax",
-    });
+    }, "test-model");
     expect(result.kind).toBe("ok");
     if (result.kind === "ok") {
       const total = result.assignments.reduce((s, a) => s + a.sharePaise, 0);
@@ -50,14 +50,14 @@ describe("assignItems", () => {
     });
     const result = await assignItems(fakeClient(json), {
       bill, participants, assignmentText: "anything",
-    });
+    }, "test-model");
     expect(result.kind).toBe("error");
   });
 
   it("returns error on malformed JSON", async () => {
     const result = await assignItems(fakeClient("not json"), {
       bill, participants, assignmentText: "anything",
-    });
+    }, "test-model");
     expect(result.kind).toBe("error");
   });
 });

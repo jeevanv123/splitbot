@@ -5,6 +5,7 @@ import type { HandlerContext } from "../handlers/context.js";
 const baseCtx = (text: string, kind: "text" | "image" = "text"): HandlerContext => ({
   db: {} as any,
   llm: { messages: { create: vi.fn() } } as any,
+  model: "test-model",
   msg: {
     kind, groupId: "g1", senderId: "+a", senderDisplayName: "Anu",
     text, receivedAt: new Date(), rawId: "1",

@@ -21,7 +21,7 @@ describe("extractBill", () => {
       total_paise: 67000,
       currency: "INR",
     });
-    const out = await extractBill(fakeClient(json), Buffer.from("img"), "image/jpeg");
+    const out = await extractBill(fakeClient(json), Buffer.from("img"), "image/jpeg", "test-model");
     expect(out.kind).toBe("bill");
     if (out.kind === "bill") {
       expect(out.bill.items[0]!.name).toBe("pasta");
@@ -31,12 +31,12 @@ describe("extractBill", () => {
 
   it("returns not-a-bill when is_bill is false", async () => {
     const json = JSON.stringify({ is_bill: false, reason: "this is a meme" });
-    const out = await extractBill(fakeClient(json), Buffer.from("img"), "image/jpeg");
+    const out = await extractBill(fakeClient(json), Buffer.from("img"), "image/jpeg", "test-model");
     expect(out.kind).toBe("not_a_bill");
   });
 
   it("returns error when JSON is malformed", async () => {
-    const out = await extractBill(fakeClient("not json at all"), Buffer.from("img"), "image/jpeg");
+    const out = await extractBill(fakeClient("not json at all"), Buffer.from("img"), "image/jpeg", "test-model");
     expect(out.kind).toBe("error");
   });
 
@@ -49,7 +49,7 @@ describe("extractBill", () => {
       total_paise: 0,
       currency: "INR",
     });
-    const out = await extractBill(fakeClient(json), Buffer.from("img"), "image/jpeg");
+    const out = await extractBill(fakeClient(json), Buffer.from("img"), "image/jpeg", "test-model");
     expect(out.kind).toBe("error");
   });
 });

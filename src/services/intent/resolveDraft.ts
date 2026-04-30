@@ -36,11 +36,12 @@ Return ONLY valid JSON:
 export async function resolveDraft(
   client: AnthropicLike,
   input: ResolveInput,
+  model: string,
 ): Promise<ResolveResult> {
   let text = "";
   try {
     const resp = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model,
       max_tokens: 256,
       system: SYSTEM,
       messages: [{

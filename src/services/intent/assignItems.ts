@@ -37,11 +37,12 @@ Return ONLY valid JSON:
 export async function assignItems(
   client: AnthropicLike,
   input: AssignItemsInput,
+  model: string,
 ): Promise<AssignItemsResult> {
   let text = "";
   try {
     const resp = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model,
       max_tokens: 1024,
       system: SYSTEM,
       messages: [{

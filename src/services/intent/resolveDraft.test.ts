@@ -16,7 +16,7 @@ describe("resolveDraft", () => {
     const result = await resolveDraft(fakeClient(json), {
       message: "Anu had pasta",
       drafts,
-    });
+    }, "test-model");
     expect(result.kind).toBe("pick");
     if (result.kind === "pick") {
       expect(result.draftId).toBe(12);
@@ -26,19 +26,19 @@ describe("resolveDraft", () => {
 
   it("returns low-confidence pick", async () => {
     const json = JSON.stringify({ draft_id: 12, confidence: "low", reason: "could be either" });
-    const result = await resolveDraft(fakeClient(json), { message: "split it", drafts });
+    const result = await resolveDraft(fakeClient(json), { message: "split it", drafts }, "test-model");
     expect(result.kind).toBe("pick");
     if (result.kind === "pick") expect(result.confidence).toBe("low");
   });
 
   it("returns ambiguous when LLM declines to pick", async () => {
     const json = JSON.stringify({ draft_id: null, confidence: "ambiguous", reason: "no signal" });
-    const result = await resolveDraft(fakeClient(json), { message: "go", drafts });
+    const result = await resolveDraft(fakeClient(json), { message: "go", drafts }, "test-model");
     expect(result.kind).toBe("ambiguous");
   });
 
   it("returns error on malformed JSON", async () => {
-    const result = await resolveDraft(fakeClient("nope"), { message: "x", drafts });
+    const result = await resolveDraft(fakeClient("nope"), { message: "x", drafts }, "test-model");
     expect(result.kind).toBe("error");
   });
 });

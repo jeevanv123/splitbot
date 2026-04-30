@@ -37,6 +37,7 @@ describe("handleSettle", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: { messages: { create: vi.fn() } },
+      model: "test-model",
       msg: { kind: "text", groupId: "g1", senderId: "+b", senderDisplayName: "Beta", text: "/settle", receivedAt: new Date(), rawId: "1" },
       groupMembers: [{ userId: "+a", displayName: "Anu" }, { userId: "+b", displayName: "Beta" }],
     };
@@ -56,6 +57,7 @@ describe("handleSettle", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: { messages: { create: vi.fn() } },
+      model: "test-model",
       msg: { kind: "text", groupId: "g1", senderId: "+b", senderDisplayName: "Beta", text: "/settle", receivedAt: new Date(), rawId: "1" },
       groupMembers: [{ userId: "+a", displayName: "Anu" }, { userId: "+b", displayName: "Beta" }, { userId: "+c", displayName: "Cee" }],
     };

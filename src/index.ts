@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import AnthropicBedrock from "@anthropic-ai/bedrock-sdk";
 import Fastify from "fastify";
 import pino from "pino";
 import { loadConfig } from "./config/index.js";
@@ -10,11 +11,22 @@ import { createTgBot } from "./tg/bot.js";
 import { route } from "./router/index.js";
 import type { HandlerContext } from "./handlers/context.js";
 
+function defaultModelFor(provider: "anthropic" | "bedrock"): string {
+  return provider === "bedrock"
+    ? "anthropic.claude-sonnet-4-5-20250929-v1:0"
+    : "claude-sonnet-4-6";
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
   const logger = pino({ level: config.LOG_LEVEL });
   const db = initDb(config.DATABASE_URL);
-  const llm = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY }) as any;
+
+  const llm = config.LLM_PROVIDER === "bedrock"
+    ? (new AnthropicBedrock({ awsRegion: config.AWS_REGION }) as any)
+    : (new Anthropic({ apiKey: config.ANTHROPIC_API_KEY! }) as any);
+
+  const model = config.CLAUDE_MODEL ?? defaultModelFor(config.LLM_PROVIDER);
 
   const tg = createTgBot({ token: config.TELEGRAM_BOT_TOKEN, logger });
 
@@ -31,7 +43,7 @@ async function main(): Promise<void> {
         ? await listGroupMembers(db as any, msg.groupId)
         : [];
 
-      const ctx: HandlerContext = { db, llm, msg, groupMembers };
+      const ctx: HandlerContext = { db, llm, model, msg, groupMembers };
       const handler = route(ctx);
       const replies = await handler.run(ctx);
       for (const r of replies) {

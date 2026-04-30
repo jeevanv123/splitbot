@@ -30,6 +30,7 @@ describe("handleSplit", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: { messages: { create: vi.fn() } },
+      model: "test-model",
       msg: { kind: "text", groupId: "g1", senderId: "a", senderDisplayName: "Anu", text: "/split 600 cab with @b @c", receivedAt: new Date(), rawId: "1" },
       groupMembers: [
         { userId: "a", displayName: "Anu" },
@@ -50,6 +51,7 @@ describe("handleSplit", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: { messages: { create: vi.fn() } },
+      model: "test-model",
       msg: { kind: "text", groupId: "g1", senderId: "a", senderDisplayName: "Anu", text: "/split 300 chai", receivedAt: new Date(), rawId: "1" },
       groupMembers: [
         { userId: "a", displayName: "Anu" },
@@ -68,6 +70,7 @@ describe("handleSplit", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: { messages: { create: vi.fn() } },
+      model: "test-model",
       msg: { kind: "text", groupId: "g1", senderId: "a", senderDisplayName: "Anu", text: "/split 200 except @c", receivedAt: new Date(), rawId: "1" },
       groupMembers: [
         { userId: "a", displayName: "Anu" },
@@ -87,6 +90,7 @@ describe("handleSplit", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: { messages: { create: vi.fn() } },
+      model: "test-model",
       msg: { kind: "text", groupId: null, senderId: "a", senderDisplayName: "Anu", text: "/split 100 x", receivedAt: new Date(), rawId: "1" },
       groupMembers: [],
     };
