@@ -30,6 +30,7 @@ const SPLITBOT_COMMANDS = [
   { command: "paid",    description: "Mark a settlement done (e.g. /paid @user 100)" },
   { command: "bills",   description: "List pending bill drafts" },
   { command: "help",    description: "Show usage" },
+  { command: "reset",   description: "Wipe all expenses + drafts in this group" },
 ];
 
 export function createTgBot({ token, logger }: CreateTgBotArgs): TgClient {

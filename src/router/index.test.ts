@@ -36,4 +36,8 @@ describe("route", () => {
   it("routes /help correctly", async () => {
     expect(route(baseCtx("/help")).name).toBe("handleHelp");
   });
+
+  it("routes /reset to reset handler", async () => {
+    expect(route(baseCtx("/reset")).name).toBe("handleReset");
+  });
 });

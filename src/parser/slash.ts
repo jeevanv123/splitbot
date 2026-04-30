@@ -5,6 +5,7 @@ export type ParsedCommand =
   | { command: "balance" }
   | { command: "settle" }
   | { command: "bills" }
+  | { command: "reset" }
   | { command: "help" }
   | { command: "upi"; upiId: string }
   | { command: "paid"; toUserId: string; amountPaise: Paise }
@@ -48,6 +49,8 @@ export function parseSlash(text: string): ParsedCommand | null {
       return { command: "settle" };
     case "bills":
       return { command: "bills" };
+    case "reset":
+      return { command: "reset" };
     case "help":
       return { command: "help" };
 

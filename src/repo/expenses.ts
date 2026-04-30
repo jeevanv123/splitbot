@@ -2,7 +2,7 @@ import { eq, desc } from "drizzle-orm";
 import * as schema from "./schema.js";
 import type { Expense, ExpenseSource, Paise } from "../types/domain.js";
 
-type AnyDb = { select: any; insert: any; update: any; transaction: any };
+type AnyDb = { select: any; insert: any; update: any; delete: any; transaction: any };
 
 export interface CreateExpenseInput {
   groupId: string;
@@ -47,6 +47,12 @@ export async function createExpenseWithSplits(db: AnyDb, input: CreateExpenseInp
 
     return expenseId;
   });
+}
+
+export async function deleteAllExpensesInGroup(db: AnyDb, groupId: string): Promise<number> {
+  // splits cascade-delete via FK onDelete: "cascade"
+  const result = await db.delete(schema.expenses).where(eq(schema.expenses.groupId, groupId)).returning({ id: schema.expenses.id });
+  return result.length;
 }
 
 export async function listExpenses(db: AnyDb, groupId: string): Promise<Expense[]> {

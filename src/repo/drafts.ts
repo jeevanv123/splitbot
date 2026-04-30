@@ -2,7 +2,7 @@ import { eq, and, desc } from "drizzle-orm";
 import * as schema from "./schema.js";
 import type { Bill, BillDraft } from "../types/domain.js";
 
-type AnyDb = { select: any; insert: any; update: any };
+type AnyDb = { select: any; insert: any; update: any; delete: any };
 
 export interface CreateDraftInput {
   groupId: string;
@@ -67,4 +67,9 @@ export async function markDraftCancelled(db: AnyDb, id: number): Promise<void> {
   await db.update(schema.billDrafts)
     .set({ status: "cancelled" })
     .where(eq(schema.billDrafts.id, id));
+}
+
+export async function deleteAllDraftsInGroup(db: AnyDb, groupId: string): Promise<number> {
+  const result = await db.delete(schema.billDrafts).where(eq(schema.billDrafts.groupId, groupId)).returning({ id: schema.billDrafts.id });
+  return result.length;
 }

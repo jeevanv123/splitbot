@@ -10,6 +10,7 @@ Commands:
   /upi <upi-id> Save your UPI id once (e.g. /upi anu@okhdfc)
   /paid @user <amt>  Mark a settlement done after paying
   /bills        List pending bill drafts in this group
+  /reset        Wipe all expenses + drafts in this group (no confirmation!)
   /help         This message
 
 Magic: drop a bill photo in the group → I'll itemize it. Reply in plain English
