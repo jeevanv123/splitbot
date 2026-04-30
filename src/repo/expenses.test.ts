@@ -60,6 +60,20 @@ describe("expenses + splits", () => {
     expect(map["+c"]).toBe(-20000);
   });
 
+  it("rolls back the expense insert when splits sum mismatch is forced post-validation", async () => {
+    // Use foreign-key violation on a split userId to trigger insert failure post-expense-insert.
+    await expect(createExpenseWithSplits(db, {
+      groupId: "g1", paidByUserId: "+a", amountPaise: 100,
+      description: "rollback test", source: "slash", draftId: null,
+      splits: [
+        { userId: "+a", sharePaise: 50 },
+        { userId: "+nonexistent", sharePaise: 50 },  // FK violation
+      ],
+    })).rejects.toThrow();
+    const list = await listExpenses(db, "g1");
+    expect(list).toHaveLength(0);  // expense was rolled back
+  });
+
   it("markSplitsSettled excludes settled splits from balance", async () => {
     await createExpenseWithSplits(db, {
       groupId: "g1", paidByUserId: "+a", amountPaise: 60000,

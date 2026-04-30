@@ -20,28 +20,33 @@ export async function createExpenseWithSplits(db: AnyDb, input: CreateExpenseInp
     throw new Error(`split shares (${totalShares}) do not sum to amount (${input.amountPaise})`);
   }
 
-  const inserted = await db.insert(schema.expenses).values({
-    groupId: input.groupId,
-    paidByUserId: input.paidByUserId,
-    amountPaise: input.amountPaise,
-    description: input.description,
-    source: input.source,
-    draftId: input.draftId,
-    createdAt: new Date(),
-  }).returning({ id: schema.expenses.id });
+  // better-sqlite3's drizzle adapter runs transactions synchronously and rejects
+  // async callbacks ("Transaction function cannot return a promise"). We use a
+  // sync callback and the synchronous query terminators (.all() / .run()).
+  return db.transaction((tx: AnyDb) => {
+    const inserted = tx.insert(schema.expenses).values({
+      groupId: input.groupId,
+      paidByUserId: input.paidByUserId,
+      amountPaise: input.amountPaise,
+      description: input.description,
+      source: input.source,
+      draftId: input.draftId,
+      createdAt: new Date(),
+    }).returning({ id: schema.expenses.id }).all();
 
-  const expenseId = inserted[0]!.id as number;
+    const expenseId = inserted[0]!.id as number;
 
-  await db.insert(schema.splits).values(
-    input.splits.map((s) => ({
-      expenseId,
-      userId: s.userId,
-      sharePaise: s.sharePaise,
-      settledAt: null,
-    })),
-  );
+    tx.insert(schema.splits).values(
+      input.splits.map((s) => ({
+        expenseId,
+        userId: s.userId,
+        sharePaise: s.sharePaise,
+        settledAt: null,
+      })),
+    ).run();
 
-  return expenseId;
+    return expenseId;
+  });
 }
 
 export async function listExpenses(db: AnyDb, groupId: string): Promise<Expense[]> {
