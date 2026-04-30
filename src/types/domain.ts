@@ -2,14 +2,14 @@
 export type Paise = number;
 
 export interface User {
-  id: string;            // E.164 phone, e.g. "+919876543210"
+  id: string;            // Platform user id (e.g. Telegram user_id as string)
   displayName: string;
   upiId: string | null;
   createdAt: Date;
 }
 
 export interface Group {
-  id: string;            // WhatsApp JID
+  id: string;            // Platform chat id (e.g. Telegram chat_id as string)
   name: string;
   createdAt: Date;
 }

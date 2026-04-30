@@ -11,7 +11,11 @@ export type ParsedCommand =
   | { command: "invalid"; reason: string };
 
 const UPI_RE = /^[\w.+-]+@[\w.-]+$/;
-const MENTION_RE = /@(\d{10,15})/g;
+// Mentions can be Telegram usernames (@anu) or numeric user_ids (@123456789).
+// We extract the raw token; resolution against known group members happens at
+// the handler layer if needed. v1 simplification: most splits go to all members
+// (no `with` clause), so explicit-mention resolution is best-effort.
+const MENTION_RE = /@([A-Za-z0-9_]{2,32})/g;
 
 function parseAmountToPaise(s: string): Paise | null {
   if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
@@ -24,7 +28,7 @@ function extractMentions(text: string): string[] {
   let m: RegExpExecArray | null;
   const re = new RegExp(MENTION_RE.source, "g");
   while ((m = re.exec(text)) !== null) {
-    out.push(`+${m[1]!}`);
+    out.push(m[1]!);
   }
   return out;
 }
@@ -68,8 +72,8 @@ export function parseSlash(text: string): ParsedCommand | null {
 
       // Pull `with` and `except` clauses
       let work = ` ${rest} `;
-      const withMatch = work.match(/\swith\s+((?:@\d{10,15}\s*)+)/i);
-      const exceptMatch = work.match(/\sexcept\s+((?:@\d{10,15}\s*)+)/i);
+      const withMatch = work.match(/\swith\s+((?:@[A-Za-z0-9_]{2,32}\s*)+)/i);
+      const exceptMatch = work.match(/\sexcept\s+((?:@[A-Za-z0-9_]{2,32}\s*)+)/i);
       const withMentions = withMatch ? extractMentions(withMatch[1]!) : [];
       const exceptMentions = exceptMatch ? extractMentions(exceptMatch[1]!) : [];
       if (withMatch) work = work.replace(withMatch[0], " ");

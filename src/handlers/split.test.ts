@@ -21,25 +21,25 @@ describe("handleSplit", () => {
   beforeEach(async () => {
     db = makeTestDb();
     await upsertGroup(db, { id: "g1", name: "G" });
-    await upsertUser(db, { id: "+a", displayName: "Anu" });
-    await upsertUser(db, { id: "+b", displayName: "Beta" });
-    await upsertUser(db, { id: "+c", displayName: "Cee" });
+    await upsertUser(db, { id: "a", displayName: "Anu" });
+    await upsertUser(db, { id: "b", displayName: "Beta" });
+    await upsertUser(db, { id: "c", displayName: "Cee" });
   });
 
   it("splits with explicit `with` list", async () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: { messages: { create: vi.fn() } },
-      msg: { kind: "text", groupId: "g1", senderId: "+a", senderDisplayName: "Anu", text: "/split 600 cab with @b @c", receivedAt: new Date(), rawId: "1" },
+      msg: { kind: "text", groupId: "g1", senderId: "a", senderDisplayName: "Anu", text: "/split 600 cab with @b @c", receivedAt: new Date(), rawId: "1" },
       groupMembers: [
-        { userId: "+a", displayName: "Anu" },
-        { userId: "+b", displayName: "Beta" },
-        { userId: "+c", displayName: "Cee" },
+        { userId: "a", displayName: "Anu" },
+        { userId: "b", displayName: "Beta" },
+        { userId: "c", displayName: "Cee" },
       ],
     };
     const replies = await handleSplit(ctx, {
       command: "split", amountPaise: 60000, description: "cab",
-      withMentions: ["+b", "+c"], exceptMentions: [],
+      withMentions: ["b", "c"], exceptMentions: [],
     });
     expect(replies).toHaveLength(1);
     expect(replies[0]!.text).toContain("Anu paid ₹600");
@@ -50,11 +50,11 @@ describe("handleSplit", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: { messages: { create: vi.fn() } },
-      msg: { kind: "text", groupId: "g1", senderId: "+a", senderDisplayName: "Anu", text: "/split 300 chai", receivedAt: new Date(), rawId: "1" },
+      msg: { kind: "text", groupId: "g1", senderId: "a", senderDisplayName: "Anu", text: "/split 300 chai", receivedAt: new Date(), rawId: "1" },
       groupMembers: [
-        { userId: "+a", displayName: "Anu" },
-        { userId: "+b", displayName: "Beta" },
-        { userId: "+c", displayName: "Cee" },
+        { userId: "a", displayName: "Anu" },
+        { userId: "b", displayName: "Beta" },
+        { userId: "c", displayName: "Cee" },
       ],
     };
     const replies = await handleSplit(ctx, {
@@ -68,16 +68,16 @@ describe("handleSplit", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: { messages: { create: vi.fn() } },
-      msg: { kind: "text", groupId: "g1", senderId: "+a", senderDisplayName: "Anu", text: "/split 200 except @c", receivedAt: new Date(), rawId: "1" },
+      msg: { kind: "text", groupId: "g1", senderId: "a", senderDisplayName: "Anu", text: "/split 200 except @c", receivedAt: new Date(), rawId: "1" },
       groupMembers: [
-        { userId: "+a", displayName: "Anu" },
-        { userId: "+b", displayName: "Beta" },
-        { userId: "+c", displayName: "Cee" },
+        { userId: "a", displayName: "Anu" },
+        { userId: "b", displayName: "Beta" },
+        { userId: "c", displayName: "Cee" },
       ],
     };
     const replies = await handleSplit(ctx, {
       command: "split", amountPaise: 20000, description: "x",
-      withMentions: [], exceptMentions: ["+c"],
+      withMentions: [], exceptMentions: ["c"],
     });
     expect(replies[0]!.text).toContain("₹100");
     expect(replies[0]!.text).not.toContain("Cee");
@@ -87,7 +87,7 @@ describe("handleSplit", () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: { messages: { create: vi.fn() } },
-      msg: { kind: "text", groupId: null, senderId: "+a", senderDisplayName: "Anu", text: "/split 100 x", receivedAt: new Date(), rawId: "1" },
+      msg: { kind: "text", groupId: null, senderId: "a", senderDisplayName: "Anu", text: "/split 100 x", receivedAt: new Date(), rawId: "1" },
       groupMembers: [],
     };
     const replies = await handleSplit(ctx, {

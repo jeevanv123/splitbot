@@ -1,7 +1,7 @@
 {
   "name": "splitbot",
   "version": "0.1.0",
-  "description": "Open-source WhatsApp bot for splitting group expenses with AI bill scanning and UPI settle-up.",
+  "description": "Open-source Telegram bot for splitting group expenses with AI bill scanning and UPI settle-up.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -20,21 +20,18 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
-    "@whiskeysockets/baileys": "^6.7.0",
     "better-sqlite3": "^11.0.0",
     "drizzle-orm": "^0.36.0",
     "fastify": "^5.0.0",
     "grammy": "^1.42.0",
     "pg": "^8.13.0",
     "pino": "^9.0.0",
-    "qrcode-terminal": "^0.12.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.0",
-    "@types/qrcode-terminal": "^0.12.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "drizzle-kit": "^0.28.0",

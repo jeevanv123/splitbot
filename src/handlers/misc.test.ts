@@ -58,6 +58,24 @@ describe("misc handlers", () => {
     expect(replies[0]!.text).toMatch(/marked.*settled/i);
   });
 
+  it("/paid with amount smaller than smallest split returns hint", async () => {
+    // Single ₹500 split (sharePaise=50000), payment of ₹400 (40000 paise) → can't settle.
+    await createExpenseWithSplits(db as any, {
+      groupId: "g1", paidByUserId: "+a", amountPaise: 100000,
+      description: "x", source: "slash", draftId: null,
+      splits: [{ userId: "+a", sharePaise: 50000 }, { userId: "+b", sharePaise: 50000 }],
+    });
+    const ctx: HandlerContext = {
+      db: db as any, llm,
+      msg: dummyMsg({ senderId: "+b", senderDisplayName: "Beta" }),
+      groupMembers: [],
+    };
+    const replies = await handlePaid(ctx, { command: "paid", toUserId: "+a", amountPaise: 40000 });
+    expect(replies[0]!.text).toMatch(/Couldn't settle/i);
+    expect(replies[0]!.text).toMatch(/Smallest unsettled/i);
+    expect(replies[0]!.text).toContain("₹500");
+  });
+
   it("/bills lists pending drafts in the group", async () => {
     await createDraft(db as any, {
       groupId: "g1", uploaderId: "+a",

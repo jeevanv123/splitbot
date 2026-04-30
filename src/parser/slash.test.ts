@@ -14,7 +14,18 @@ describe("parseSlash", () => {
       command: "split",
       amountPaise: 60000,
       description: "cab from airport",
-      withMentions: ["+919876543210", "+919876543211"],
+      withMentions: ["919876543210", "919876543211"],
+      exceptMentions: [],
+    });
+  });
+
+  it("parses /split with username mention", () => {
+    const parsed = parseSlash("/split 100 dosa with @anu");
+    expect(parsed).toEqual({
+      command: "split",
+      amountPaise: 10000,
+      description: "dosa",
+      withMentions: ["anu"],
       exceptMentions: [],
     });
   });
@@ -37,7 +48,7 @@ describe("parseSlash", () => {
       amountPaise: 120000,
       description: "dinner",
       withMentions: [],
-      exceptMentions: ["+919999999999"],
+      exceptMentions: ["919999999999"],
     });
   });
 
@@ -58,7 +69,7 @@ describe("parseSlash", () => {
   it("parses /paid", () => {
     expect(parseSlash("/paid @919876543210 450")).toEqual({
       command: "paid",
-      toUserId: "+919876543210",
+      toUserId: "919876543210",
       amountPaise: 45000,
     });
   });

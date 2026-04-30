@@ -28,26 +28,33 @@ export async function handlePaid(ctx: HandlerContext, cmd: PaidCmd): Promise<Han
   );
   owedToUser.sort((a, b) => a.id - b.id);
 
-  let remaining = cmd.amountPaise;
+  // Greedy settle: oldest splits first, accumulate as many as fit under the paid amount.
+  let actuallySettled = 0;
   const toSettle: number[] = [];
   for (const s of owedToUser) {
-    if (remaining <= 0) break;
-    if (s.sharePaise <= remaining) {
+    if (s.sharePaise <= cmd.amountPaise - actuallySettled) {
       toSettle.push(s.id);
-      remaining -= s.sharePaise;
+      actuallySettled += s.sharePaise;
     }
   }
   if (toSettle.length === 0) {
+    const smallest = owedToUser.reduce<number | null>(
+      (min, s) => (min === null || s.sharePaise < min ? s.sharePaise : min),
+      null,
+    );
+    const hint = smallest !== null
+      ? ` Smallest unsettled split owed to that user is ${rupees(smallest)}.`
+      : "";
     return [{
       to: ctx.msg.groupId,
-      text: `Couldn't find an unsettled split of exactly ${rupees(cmd.amountPaise)} owed to that user.`,
+      text: `Couldn't settle anything with ${rupees(cmd.amountPaise)}.${hint}`,
       replyToRawId: ctx.msg.rawId,
     }];
   }
   await markSplitsSettled(ctx.db as any, toSettle);
   return [{
     to: ctx.msg.groupId,
-    text: `✅ ${rupees(cmd.amountPaise - remaining)} marked settled (${toSettle.length} split${toSettle.length === 1 ? "" : "s"}).`,
+    text: `✅ ${rupees(actuallySettled)} marked settled (${toSettle.length} split${toSettle.length === 1 ? "" : "s"}).`,
     replyToRawId: ctx.msg.rawId,
   }];
 }
