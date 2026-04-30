@@ -69,12 +69,23 @@ export function createTgBot({ token, logger }: CreateTgBotArgs): TgClient {
       try {
         const res = await fetch(downloadUrl);
         if (!res.ok) {
-          logger.warn({ status: res.status }, "telegram file download failed");
+          // Never log downloadUrl or res itself — URL contains the bot token.
+          logger.warn(
+            { status: res.status, fileId: largest.file_id },
+            "telegram photo download failed",
+          );
           return null;
         }
         buf = Buffer.from(await res.arrayBuffer());
       } catch (e) {
-        logger.warn({ err: e }, "telegram file fetch threw");
+        // Don't include the error object — it may contain the URL with token.
+        logger.warn(
+          {
+            fileId: largest.file_id,
+            errType: e instanceof Error ? e.name : typeof e,
+          },
+          "telegram photo download threw",
+        );
         return null;
       }
       return {

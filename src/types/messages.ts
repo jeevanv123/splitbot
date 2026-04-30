@@ -3,7 +3,7 @@ export type IncomingKind = "text" | "image";
 export interface IncomingMessage {
   kind: IncomingKind;
   groupId: string | null;       // null = DM
-  senderId: string;             // E.164 phone
+  senderId: string;             // platform-specific user id (e.g. Telegram user_id)
   senderDisplayName: string;
   text: string;                 // caption for images, body for text
   imageBuffer?: Buffer;         // present when kind === "image"
