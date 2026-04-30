@@ -1,0 +1,95 @@
+import type { Paise } from "../types/domain.js";
+
+export type ParsedCommand =
+  | { command: "split"; amountPaise: Paise; description: string; withMentions: string[]; exceptMentions: string[] }
+  | { command: "balance" }
+  | { command: "settle" }
+  | { command: "bills" }
+  | { command: "help" }
+  | { command: "upi"; upiId: string }
+  | { command: "paid"; toUserId: string; amountPaise: Paise }
+  | { command: "invalid"; reason: string };
+
+const UPI_RE = /^[\w.+-]+@[\w.-]+$/;
+const MENTION_RE = /@(\d{10,15})/g;
+
+function parseAmountToPaise(s: string): Paise | null {
+  if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
+  const rupees = parseFloat(s);
+  return Math.round(rupees * 100);
+}
+
+function extractMentions(text: string): string[] {
+  const out: string[] = [];
+  let m: RegExpExecArray | null;
+  const re = new RegExp(MENTION_RE.source, "g");
+  while ((m = re.exec(text)) !== null) {
+    out.push(`+${m[1]!}`);
+  }
+  return out;
+}
+
+export function parseSlash(text: string): ParsedCommand | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("/") || trimmed === "/") return null;
+
+  const space = trimmed.indexOf(" ");
+  const cmd = (space === -1 ? trimmed.slice(1) : trimmed.slice(1, space)).toLowerCase();
+  const rest = space === -1 ? "" : trimmed.slice(space + 1).trim();
+
+  switch (cmd) {
+    case "balance":
+      return { command: "balance" };
+    case "settle":
+      return { command: "settle" };
+    case "bills":
+      return { command: "bills" };
+    case "help":
+      return { command: "help" };
+
+    case "upi": {
+      if (!rest) return { command: "invalid", reason: "Usage: /upi <upi-id>" };
+      if (!UPI_RE.test(rest)) return { command: "invalid", reason: "Invalid UPI id format." };
+      return { command: "upi", upiId: rest };
+    }
+
+    case "paid": {
+      const mentions = extractMentions(rest);
+      const amountStr = rest.replace(MENTION_RE, "").trim();
+      const amountPaise = parseAmountToPaise(amountStr);
+      if (mentions.length !== 1 || amountPaise === null) {
+        return { command: "invalid", reason: "Usage: /paid @<phone> <amount>" };
+      }
+      return { command: "paid", toUserId: mentions[0]!, amountPaise };
+    }
+
+    case "split": {
+      if (!rest) return { command: "invalid", reason: "Usage: /split <amount> <desc> [with @user] [except @user]" };
+
+      // Pull `with` and `except` clauses
+      let work = ` ${rest} `;
+      const withMatch = work.match(/\swith\s+((?:@\d{10,15}\s*)+)/i);
+      const exceptMatch = work.match(/\sexcept\s+((?:@\d{10,15}\s*)+)/i);
+      const withMentions = withMatch ? extractMentions(withMatch[1]!) : [];
+      const exceptMentions = exceptMatch ? extractMentions(exceptMatch[1]!) : [];
+      if (withMatch) work = work.replace(withMatch[0], " ");
+      if (exceptMatch) work = work.replace(exceptMatch[0], " ");
+      work = work.trim();
+
+      const firstSpace = work.indexOf(" ");
+      if (firstSpace === -1) return { command: "invalid", reason: "Need a description after the amount." };
+      const amountStr = work.slice(0, firstSpace);
+      const description = work.slice(firstSpace + 1).trim();
+      const amountPaise = parseAmountToPaise(amountStr);
+      if (amountPaise === null || amountPaise <= 0) {
+        return { command: "invalid", reason: "Amount must be a positive number." };
+      }
+      if (!description) return { command: "invalid", reason: "Description is required." };
+
+      return { command: "split", amountPaise, description, withMentions, exceptMentions };
+    }
+
+    default:
+      return { command: "invalid", reason: `Unknown command: /${cmd}` };
+  }
+}
