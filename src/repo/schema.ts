@@ -1,4 +1,4 @@
-import { index, sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { index, sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 // NOTE: this schema targets SQLite. Drizzle-kit cannot retranslate `sqliteTable`
 // to Postgres DDL — Postgres support requires a parallel `pg-core` schema
@@ -89,3 +89,13 @@ export const billDrafts = sqliteTable(
     byGroupStatus: index("idx_bill_drafts_group_status").on(t.groupId, t.status),
   }),
 );
+
+export const groupMembers = sqliteTable("group_members", {
+  groupId: text("group_id").notNull().references(() => groups.id, { onDelete: "restrict" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  lastSeenAt: integer("last_seen_at", { mode: "timestamp" }).notNull(),
+}, (t) => ({
+  // Composite primary key emulation via unique index since drizzle-kit handles single-PK natively
+  byGroup: index("idx_group_members_group").on(t.groupId),
+  unique: uniqueIndex("uniq_group_members").on(t.groupId, t.userId),
+}));

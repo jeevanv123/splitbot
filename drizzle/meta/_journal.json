@@ -15,6 +15,13 @@
       "when": 1777547132195,
       "tag": "0001_indexes_and_fks",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777553106479,
+      "tag": "0002_group_members",
+      "breakpoints": true
     }
   ]
 }
