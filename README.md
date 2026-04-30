@@ -1,50 +1,78 @@
 # Splitbot
 
-Open-source WhatsApp bot that splits group expenses with AI-powered bill scanning
-and one-tap UPI settle-up. Self-hostable, free, no signups for group members.
+Open-source **Telegram** bot that splits group expenses with AI bill scanning and one-tap UPI settle-up. Self-hostable, free, no signups for group members.
 
 ## Why
 
-Splitwise charges per-day add limits on free; everyone has to install + sign up.
-Splitbot lives in your existing WhatsApp group: drop a bill photo, talk to the bot
-in plain English, settle in GPay/PhonePe with one tap.
+Splitwise charges per-day add limits on the free tier and requires every group member to install + sign up. Splitbot lives in your existing Telegram group: drop a bill photo, talk to the bot in plain English, settle in GPay/PhonePe with one tap.
 
 ## Quick start
+
+### Local
 
 ```bash
 git clone https://github.com/<user>/splitbot
 cd splitbot
-cp .env.example .env       # set ANTHROPIC_API_KEY
+cp .env.example .env       # set TELEGRAM_BOT_TOKEN and ANTHROPIC_API_KEY
 npm install
 npm run db:migrate
-npm start                   # scan QR with WhatsApp → done
+npm run build
+npm start                   # bot polls Telegram for messages
 ```
+
+Get your bot token from [@BotFather](https://t.me/BotFather) on Telegram (`/newbot`).
+
+### Docker
+
+```bash
+cp .env.example .env       # set TELEGRAM_BOT_TOKEN and ANTHROPIC_API_KEY
+docker compose up
+```
+
+### Postgres (optional)
+
+By default Splitbot uses SQLite at `./data/splitbot.db`. To use Postgres:
+
+```bash
+DATABASE_URL=postgres://splitbot:splitbot@postgres:5432/splitbot \
+  docker compose --profile postgres up
+```
+
+> Note: Postgres support is wired through `DATABASE_URL` but the migrations are SQLite-flavored in v1. A parallel `pg-core` schema and Postgres migrations are planned for phase 2. For now, run with SQLite.
 
 ## Database
 
-v1 uses SQLite by default (zero-config). The `DATABASE_URL` env var is reserved
-for a future Postgres adapter, but Postgres migrations need to be generated
-against a parallel `pg-core` schema (drizzle-kit cannot retranslate the SQLite
-schema across dialects). Postgres support is planned for phase 2; for now, run
-with SQLite.
+Splitbot v1 uses SQLite by default (zero-config, perfect for self-host). Set `DATABASE_URL=postgres://...` to use Postgres in the future once the parallel pg schema lands (phase 2).
+
+## Add the bot to a Telegram group
+
+1. Talk to [@BotFather](https://t.me/BotFather), `/newbot`, get a bot token.
+2. Set `TELEGRAM_BOT_TOKEN` in your `.env` and start Splitbot.
+3. In Telegram, add your bot to a group. (Recommended: also `/setprivacy` → Disable in @BotFather so the bot can read all group messages, not just commands.)
+4. Use the commands below.
 
 ## Commands
 
-- `/split <amount> <description> [with @u1 @u2] [except @u3]` — manual split
-- Drop a bill photo → bot itemizes; reply "Anu had pasta, Rohit had pizza"
-- `/balance` — your net balance per group
-- `/settle` — one-tap UPI deep-links for who you owe
-- `/upi <upi-id>` — set your UPI ID (one-time)
-- `/paid @user <amount>` — mark a settlement done
-- `/bills` — list pending bills in this group
-- `/help` — usage guide
+```
+/split <amount> <description> [with @u1 @u2] [except @u3]
+   e.g. /split 600 cab from airport
+/balance      Your net balance in this group
+/settle       UPI deep-links for who you owe
+/upi <id>     Save your UPI id (one-time)
+/paid @u <amt> Mark a settlement done after paying
+/bills        List pending bill drafts in this group
+/help         Show usage
+```
 
-## ⚠️ Notice
+Drop a bill photo → bot itemizes; reply in plain English ("Anu had pasta, Rohit had pizza") and bot computes the split.
 
-Splitbot uses the unofficial WhatsApp Web protocol via Baileys. This is against
-WhatsApp's ToS for high-volume use. Personal/small-group usage is generally fine
-but accounts can be banned at Meta's discretion. Use a secondary number if you're
-risk-averse. Phase 2 will add the official WhatsApp Cloud API as an alternative.
+## Architecture
+
+See [`docs/superpowers/specs/2026-04-30-splitbot-design.md`](docs/superpowers/specs/2026-04-30-splitbot-design.md). Note: the spec was originally WhatsApp-focused; the project pivoted to Telegram. The `src/tg/` adapter replaces the planned `src/wa/` module. All other modules (parser, repos, services, handlers, router) are platform-agnostic and unchanged.
+
+## Contributing
+
+PRs welcome. Run `npm test` before opening one. Open an issue first for non-trivial changes.
 
 ## License
 
