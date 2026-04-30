@@ -22,6 +22,16 @@ export interface CreateTgBotArgs {
   logger: pino.Logger;
 }
 
+const SPLITBOT_COMMANDS = [
+  { command: "split",   description: "Split an expense (e.g. /split 600 cab)" },
+  { command: "balance", description: "Show group balances" },
+  { command: "settle",  description: "Get UPI links for who you owe (DM)" },
+  { command: "upi",     description: "Save your UPI id (e.g. /upi anu@okhdfc)" },
+  { command: "paid",    description: "Mark a settlement done (e.g. /paid @user 100)" },
+  { command: "bills",   description: "List pending bill drafts" },
+  { command: "help",    description: "Show usage" },
+];
+
 export function createTgBot({ token, logger }: CreateTgBotArgs): TgClient {
   const bot = new Bot(token);
   const handlers: Array<(m: IncomingMessage) => Promise<void>> = [];
@@ -120,6 +130,14 @@ export function createTgBot({ token, logger }: CreateTgBotArgs): TgClient {
   return {
     async start() {
       logger.info("Starting Telegram bot (long polling)…");
+      // Register slash command suggestions BEFORE polling starts.
+      // setMyCommands is idempotent and safe to call on every startup; it overwrites the existing list.
+      try {
+        await bot.api.setMyCommands(SPLITBOT_COMMANDS);
+        logger.info({ count: SPLITBOT_COMMANDS.length }, "Registered Telegram slash commands");
+      } catch (e) {
+        logger.warn({ err: e }, "Failed to register slash commands (non-fatal)");
+      }
       // grammy's bot.start() returns a Promise that never resolves while polling.
       // We must NOT await it here, otherwise main() blocks.
       void bot.start({
