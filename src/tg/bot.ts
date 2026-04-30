@@ -2,10 +2,14 @@ import { Bot, type Context, GrammyError, HttpError } from "grammy";
 import type pino from "pino";
 import type { IncomingMessage } from "../types/messages.js";
 
+export type SendResult =
+  | { ok: true }
+  | { ok: false; reason: "dm_blocked" | "other"; error: unknown };
+
 export interface TgClient {
   start(): Promise<void>;
   stop(): Promise<void>;
-  send(to: string, text: string, replyToRawId?: string): Promise<void>;
+  send(to: string, text: string, replyToRawId?: string): Promise<SendResult>;
   onMessage(handler: (m: IncomingMessage) => Promise<void>): void;
   getChatMember(
     chatId: string,
@@ -125,14 +129,25 @@ export function createTgBot({ token, logger }: CreateTgBotArgs): TgClient {
     async stop() {
       await bot.stop();
     },
-    async send(to, text, replyToRawId) {
+    async send(to, text, replyToRawId): Promise<SendResult> {
       const chatId = parseChatId(to);
       const replyParams = replyToRawId
         ? buildReplyParams(replyToRawId)
         : undefined;
-      await bot.api.sendMessage(chatId, text, {
-        ...(replyParams ? { reply_parameters: replyParams } : {}),
-      });
+      try {
+        await bot.api.sendMessage(chatId, text, {
+          ...(replyParams ? { reply_parameters: replyParams } : {}),
+        });
+        return { ok: true };
+      } catch (e: any) {
+        // Telegram's "can't initiate conversation with a user" is 403 with that exact substring.
+        const desc = String(e?.description ?? "");
+        const code = e?.error_code ?? e?.status ?? 0;
+        if (code === 403 && desc.includes("can't initiate conversation")) {
+          return { ok: false, reason: "dm_blocked", error: e };
+        }
+        return { ok: false, reason: "other", error: e };
+      }
     },
     onMessage(h) {
       handlers.push(h);

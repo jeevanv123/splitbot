@@ -48,7 +48,22 @@ async function main(): Promise<void> {
       const handler = route(ctx);
       const replies = await handler.run(ctx);
       for (const r of replies) {
-        await tg.send(r.to, r.text, r.replyToRawId);
+        const result = await tg.send(r.to, r.text, r.replyToRawId);
+        if (result.ok) continue;
+
+        if (result.reason === "dm_blocked" && msg.groupId) {
+          // The bot was trying to DM a group member who hasn't started a chat with the bot.
+          // Fall back to a brief in-group nudge — don't leak the original (potentially sensitive) reply.
+          const nudge = `${msg.senderDisplayName}, open a private chat with me first (tap my profile → Send Message), then try the command again. I'll DM you the details from there.`;
+          const fallback = await tg.send(msg.groupId, nudge, msg.rawId);
+          if (!fallback.ok) {
+            logger.error({ reason: fallback.reason }, "failed to send dm-blocked fallback");
+          }
+          continue;
+        }
+
+        // Other send errors: log only (don't crash, don't try to send another message about it)
+        logger.error({ reason: result.reason, err: result.error }, "send failed");
       }
     } catch (err) {
       logger.error({ err }, "router/handler error");
