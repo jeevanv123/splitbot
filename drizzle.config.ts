@@ -1,12 +1,15 @@
+import "dotenv/config";
 import type { Config } from "drizzle-kit";
 
-const isPostgres = !!process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith("postgres");
+const rawUrl = process.env.DATABASE_URL?.trim();
+const databaseUrl = rawUrl && rawUrl.length > 0 ? rawUrl : undefined;
+const isPostgres = !!databaseUrl && databaseUrl.startsWith("postgres");
 
 export default {
   schema: "./src/repo/schema.ts",
   out: "./drizzle",
   dialect: isPostgres ? "postgresql" : "sqlite",
   dbCredentials: isPostgres
-    ? { url: process.env.DATABASE_URL! }
-    : { url: process.env.DATABASE_URL ?? "./data/splitbot.db" },
+    ? { url: databaseUrl! }
+    : { url: databaseUrl ?? "./data/splitbot.db" },
 } satisfies Config;

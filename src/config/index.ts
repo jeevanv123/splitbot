@@ -1,13 +1,15 @@
 import { z } from "zod";
 
+const optionalNonEmpty = z.string().optional().transform((v) => (v && v.length > 0 ? v : undefined));
+
 const schema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().min(1, "TELEGRAM_BOT_TOKEN is required"),
   LLM_PROVIDER: z.enum(["anthropic", "bedrock"]).default("anthropic"),
-  CLAUDE_MODEL: z.string().optional(),                  // override default model id
-  ANTHROPIC_API_KEY: z.string().optional(),             // required only when LLM_PROVIDER=anthropic
-  AWS_REGION: z.string().optional(),                    // required only when LLM_PROVIDER=bedrock
-  DATABASE_URL: z.string().optional(),
-  SENTRY_DSN: z.string().optional(),
+  CLAUDE_MODEL: optionalNonEmpty,                  // override default model id
+  ANTHROPIC_API_KEY: optionalNonEmpty,             // required only when LLM_PROVIDER=anthropic
+  AWS_REGION: optionalNonEmpty,                    // required only when LLM_PROVIDER=bedrock
+  DATABASE_URL: optionalNonEmpty,
+  SENTRY_DSN: optionalNonEmpty,
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 }).superRefine((cfg, ctx) => {
   if (cfg.LLM_PROVIDER === "anthropic" && !cfg.ANTHROPIC_API_KEY) {
