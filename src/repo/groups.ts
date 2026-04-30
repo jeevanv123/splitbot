@@ -1,0 +1,23 @@
+import { eq } from "drizzle-orm";
+import * as schema from "./schema.js";
+import type { Group } from "../types/domain.js";
+
+type AnyDb = { select: any; insert: any; update: any };
+
+export interface UpsertGroupInput { id: string; name: string }
+
+export async function upsertGroup(db: AnyDb, input: UpsertGroupInput): Promise<void> {
+  const existing = await db.select().from(schema.groups).where(eq(schema.groups.id, input.id)).limit(1);
+  if (existing.length > 0) {
+    await db.update(schema.groups).set({ name: input.name }).where(eq(schema.groups.id, input.id));
+    return;
+  }
+  await db.insert(schema.groups).values({ id: input.id, name: input.name, createdAt: new Date() });
+}
+
+export async function getGroup(db: AnyDb, id: string): Promise<Group | undefined> {
+  const rows = await db.select().from(schema.groups).where(eq(schema.groups.id, id)).limit(1);
+  const r = rows[0];
+  if (!r) return undefined;
+  return { id: r.id, name: r.name, createdAt: r.createdAt };
+}
