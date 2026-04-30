@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  splitbot:
+    build: .
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  # Optional: Postgres if you set DATABASE_URL=postgres://splitbot:splitbot@postgres:5432/splitbot
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: splitbot
+      POSTGRES_PASSWORD: splitbot
+      POSTGRES_DB: splitbot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    profiles:
+      - postgres
+
+volumes:
+  pgdata:
