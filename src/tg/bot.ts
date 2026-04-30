@@ -130,18 +130,9 @@ export function createTgBot({ token, logger }: CreateTgBotArgs): TgClient {
       const replyParams = replyToRawId
         ? buildReplyParams(replyToRawId)
         : undefined;
-      try {
-        await bot.api.sendMessage(chatId, sanitizeMarkdown(text), {
-          parse_mode: "Markdown",
-          ...(replyParams ? { reply_parameters: replyParams } : {}),
-        });
-      } catch (e) {
-        // Fallback to plain text if Markdown parsing fails on user content.
-        logger.warn({ err: e }, "send with Markdown failed; retrying plain");
-        await bot.api.sendMessage(chatId, text, {
-          ...(replyParams ? { reply_parameters: replyParams } : {}),
-        });
-      }
+      await bot.api.sendMessage(chatId, text, {
+        ...(replyParams ? { reply_parameters: replyParams } : {}),
+      });
     },
     onMessage(h) {
       handlers.push(h);
@@ -179,12 +170,3 @@ function displayNameFromUser(u: {
   return full || u.username || "user";
 }
 
-// Telegram Markdown V1 reserves: _ * ` [ — escape user content lightly so legitimate
-// formatting (we use ** by convention from handlers) keeps working.
-function sanitizeMarkdown(text: string): string {
-  // We're not generating MarkdownV2; legacy Markdown tolerates unbalanced chars in body.
-  // Just ensure no unmatched backticks open code blocks.
-  const backticks = (text.match(/`/g) ?? []).length;
-  if (backticks % 2 !== 0) return text.replace(/`/g, "'");
-  return text;
-}
