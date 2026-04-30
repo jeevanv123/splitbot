@@ -31,7 +31,7 @@ describe("handleBalance", () => {
     });
   });
 
-  it("DMs the sender their balance for the group", async () => {
+  it("posts full group balances in the group, not DM", async () => {
     const ctx: HandlerContext = {
       db: db as any,
       llm: { messages: { create: vi.fn() } },
@@ -40,11 +40,20 @@ describe("handleBalance", () => {
       groupMembers: [{ userId: "+a", displayName: "Anu" }, { userId: "+b", displayName: "Beta" }],
     };
     const replies = await handleBalance(ctx);
-    expect(replies[0]!.to).toBe("+b");
-    expect(replies[0]!.text).toMatch(/owe.*₹5/);
+    expect(replies).toHaveLength(1);
+    expect(replies[0]!.to).toBe("g1");
+    expect(replies[0]!.replyToRawId).toBe("1");
+    expect(replies[0]!.text).toContain("Anu is owed ₹5");
+    expect(replies[0]!.text).toContain("Beta owes ₹5");
   });
 
-  it("reports settled-up when net is zero", async () => {
+  it("reports settled-up when all balances are zero", async () => {
+    // settle by adding the inverse expense so nets cancel
+    await createExpenseWithSplits(db as any, {
+      groupId: "g1", paidByUserId: "+b", amountPaise: 1000,
+      description: "y", source: "slash", draftId: null,
+      splits: [{ userId: "+a", sharePaise: 500 }, { userId: "+b", sharePaise: 500 }],
+    });
     const ctx: HandlerContext = {
       db: db as any,
       llm: { messages: { create: vi.fn() } },
@@ -53,7 +62,20 @@ describe("handleBalance", () => {
       groupMembers: [{ userId: "+a", displayName: "Anu" }, { userId: "+b", displayName: "Beta" }],
     };
     const replies = await handleBalance(ctx);
-    // Anu paid 1000, owes 500, net +500 — owed money
-    expect(replies[0]!.text).toMatch(/owed.*₹5/);
+    expect(replies[0]!.text).toMatch(/settled up/i);
+    expect(replies[0]!.to).toBe("g1");
+  });
+
+  it("falls through with DM hint when used in DM", async () => {
+    const ctx: HandlerContext = {
+      db: db as any,
+      llm: { messages: { create: vi.fn() } },
+      model: "test-model",
+      msg: { kind: "text", groupId: null, senderId: "+a", senderDisplayName: "Anu", text: "/balance", receivedAt: new Date(), rawId: "1" },
+      groupMembers: [],
+    };
+    const replies = await handleBalance(ctx);
+    expect(replies[0]!.to).toBe("+a");
+    expect(replies[0]!.text).toMatch(/inside a group/i);
   });
 });
