@@ -12,6 +12,7 @@ import { handleStart } from "../handlers/start.js";
 import { handleHistory } from "../handlers/history.js";
 import { handleImage } from "../handlers/image.js";
 import { handleFreeText } from "../handlers/freeText.js";
+import { handleCurrency } from "../handlers/currency.js";
 
 type Bound = { name: string; run: (ctx: HandlerContext) => Promise<HandlerResult> };
 
@@ -34,6 +35,7 @@ export function route(ctx: HandlerContext): Bound {
     case "reset":   return { name: "handleReset", run: handleReset };
     case "help":    return { name: "handleHelp", run: handleHelp };
     case "start":   return { name: "handleStart", run: handleStart };
+    case "currency": return { name: "handleCurrency", run: (c) => handleCurrency(c, parsed) };
     case "invalid": {
       return {
         name: "handleInvalid",

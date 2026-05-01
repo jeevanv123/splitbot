@@ -50,6 +50,7 @@ const SPLITBOT_COMMANDS = [
   { command: "paid",    description: "Mark a settlement done (e.g. /paid @user 100)" },
   { command: "bills",   description: "List pending bill drafts" },
   { command: "history", description: "List recent expenses with delete buttons" },
+  { command: "currency", description: "View/set group currency (e.g. /currency USD)" },
   { command: "help",    description: "Show usage" },
   { command: "reset",   description: "Wipe all expenses + drafts in this group" },
 ];

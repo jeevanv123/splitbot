@@ -11,6 +11,7 @@ export interface User {
 export interface Group {
   id: string;            // Platform chat id (e.g. Telegram chat_id as string)
   name: string;
+  currency: string;      // ISO 4217 code, e.g. "INR", "USD"
   createdAt: Date;
 }
 

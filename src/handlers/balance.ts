@@ -1,12 +1,9 @@
 import type { HandlerContext, HandlerResult } from "./context.js";
 import { netBalances } from "../repo/splits.js";
 import { getUser } from "../repo/users.js";
+import { getGroup } from "../repo/groups.js";
 import { simplify } from "../services/split/simplify.js";
-
-function rupees(paise: number): string {
-  const r = (paise / 100).toFixed(2).replace(/\.00$/, "");
-  return `₹${r}`;
-}
+import { formatMoney } from "../utils/money.js";
 
 export async function handleBalance(ctx: HandlerContext): Promise<HandlerResult> {
   if (!ctx.msg.groupId) {
@@ -24,6 +21,9 @@ export async function handleBalance(ctx: HandlerContext): Promise<HandlerResult>
     }];
   }
 
+  const group = await getGroup(ctx.db as any, ctx.msg.groupId);
+  const currency = group?.currency ?? "INR";
+
   // Resolve display names for each user (group_members has them, but we go through getUser
   // which is already loaded into the codebase and consistent across handlers).
   const lines: string[] = ["📊 Balances in this group:"];
@@ -33,9 +33,9 @@ export async function handleBalance(ctx: HandlerContext): Promise<HandlerResult>
     const u = await getUser(ctx.db as any, b.userId);
     const name = u?.displayName ?? b.userId;
     if (b.netPaise > 0) {
-      lines.push(`• ${name} is owed ${rupees(b.netPaise)}`);
+      lines.push(`• ${name} is owed ${formatMoney(b.netPaise, currency)}`);
     } else {
-      lines.push(`• ${name} owes ${rupees(-b.netPaise)}`);
+      lines.push(`• ${name} owes ${formatMoney(-b.netPaise, currency)}`);
     }
   }
 
@@ -48,7 +48,7 @@ export async function handleBalance(ctx: HandlerContext): Promise<HandlerResult>
       const to = await getUser(ctx.db as any, s.toUserId);
       const fromName = from?.displayName ?? s.fromUserId;
       const toName = to?.displayName ?? s.toUserId;
-      lines.push(`• ${fromName} → ${toName}: ${rupees(s.amountPaise)}`);
+      lines.push(`• ${fromName} → ${toName}: ${formatMoney(s.amountPaise, currency)}`);
     }
   }
 

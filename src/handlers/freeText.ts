@@ -3,10 +3,8 @@ import { listPendingDraftsForUser, markDraftAssigned } from "../repo/drafts.js";
 import { resolveDraft } from "../services/intent/resolveDraft.js";
 import { assignItems } from "../services/intent/assignItems.js";
 import { createExpenseWithSplits } from "../repo/expenses.js";
-
-function rupees(p: number): string {
-  return `₹${(p / 100).toFixed(2).replace(/\.00$/, "")}`;
-}
+import { getGroup } from "../repo/groups.js";
+import { formatMoney } from "../utils/money.js";
 
 function dateLabel(d: Date): string {
   const days = Math.floor((Date.now() - d.getTime()) / 86400000);
@@ -20,19 +18,22 @@ export async function handleFreeText(ctx: HandlerContext): Promise<HandlerResult
   const drafts = await listPendingDraftsForUser(ctx.db as any, ctx.msg.groupId, ctx.msg.senderId);
   if (drafts.length === 0) return [];
 
+  const group = await getGroup(ctx.db as any, ctx.msg.groupId);
+  const currency = group?.currency ?? "INR";
+
   let target = drafts[0]!;
   let intro = "";
 
   if (drafts.length > 1) {
     const summaries = drafts.map((d) => ({
       id: d.id,
-      total: rupees(d.bill.totalPaise),
+      total: formatMoney(d.bill.totalPaise, currency),
       date: dateLabel(d.createdAt),
       topItems: d.bill.items.slice(0, 3).map((i) => i.name),
     }));
     const r = await resolveDraft(ctx.llm, { message: ctx.msg.text, drafts: summaries }, ctx.model);
     if (r.kind === "ambiguous") {
-      const list = drafts.map((d) => `• ${rupees(d.bill.totalPaise)} from ${dateLabel(d.createdAt)} (${d.bill.items.map((i) => i.name).slice(0, 2).join(", ")})`).join("\n");
+      const list = drafts.map((d) => `• ${formatMoney(d.bill.totalPaise, currency)} from ${dateLabel(d.createdAt)} (${d.bill.items.map((i) => i.name).slice(0, 2).join(", ")})`).join("\n");
       return [{
         to: ctx.msg.groupId,
         text: `You have ${drafts.length} pending bills:\n${list}\nWhich one are you splitting?`,
@@ -44,7 +45,7 @@ export async function handleFreeText(ctx: HandlerContext): Promise<HandlerResult
     if (!picked) return [];
     target = picked;
     if (r.confidence === "low") {
-      intro = `(treating this as the ${rupees(target.bill.totalPaise)} bill from ${dateLabel(target.createdAt)})\n`;
+      intro = `(treating this as the ${formatMoney(target.bill.totalPaise, currency)} bill from ${dateLabel(target.createdAt)})\n`;
     }
   }
 
@@ -73,13 +74,13 @@ export async function handleFreeText(ctx: HandlerContext): Promise<HandlerResult
   await markDraftAssigned(ctx.db as any, target.id, expenseId);
 
   const memberMap = new Map(ctx.groupMembers.map((m) => [m.userId, m.displayName]));
-  const lines = [`${intro}✅ Split done for ${rupees(target.bill.totalPaise)} bill:`];
+  const lines = [`${intro}✅ Split done for ${formatMoney(target.bill.totalPaise, currency)} bill:`];
   for (const a of result.assignments) {
     const name = memberMap.get(a.userId) ?? a.userId;
     if (a.userId === ctx.msg.senderId) {
-      lines.push(`• ${name} (you) paid; share ${rupees(a.sharePaise)}`);
+      lines.push(`• ${name} (you) paid; share ${formatMoney(a.sharePaise, currency)}`);
     } else {
-      lines.push(`• ${name} owes ${rupees(a.sharePaise)}`);
+      lines.push(`• ${name} owes ${formatMoney(a.sharePaise, currency)}`);
     }
   }
   lines.push("/balance for totals.");

@@ -11,6 +11,7 @@ export type ParsedCommand =
   | { command: "start" }
   | { command: "upi"; upiId: string }
   | { command: "paid"; toUserId: string | null; amountPaise: Paise | null }
+  | { command: "currency"; code: string | null }
   | { command: "invalid"; reason: string };
 
 const UPI_RE = /^[\w.+-]+@[\w.-]+$/;
@@ -64,6 +65,17 @@ export function parseSlash(text: string): ParsedCommand | null {
       if (!rest) return { command: "invalid", reason: "Usage: /upi <upi-id>" };
       if (!UPI_RE.test(rest)) return { command: "invalid", reason: "Invalid UPI id format." };
       return { command: "upi", upiId: rest };
+    }
+
+    case "currency": {
+      if (!rest) {
+        // No args → handler will show current currency
+        return { command: "currency", code: null };
+      }
+      if (!/^[A-Za-z]{3}$/.test(rest)) {
+        return { command: "invalid", reason: "Usage: /currency <3-letter code, e.g. USD>" };
+      }
+      return { command: "currency", code: rest.toUpperCase() };
     }
 
     case "paid": {

@@ -5,13 +5,11 @@ import type { InlineKeyboardButton } from "../types/messages.js";
 import { listUnsettledSplits, markSplitsSettled, netBalances } from "../repo/splits.js";
 import { simplify } from "../services/split/simplify.js";
 import { getUser } from "../repo/users.js";
+import { getGroup } from "../repo/groups.js";
 import * as schema from "../repo/schema.js";
+import { formatMoney } from "../utils/money.js";
 
 type PaidCmd = Extract<ParsedCommand, { command: "paid" }>;
-
-function rupees(p: number): string {
-  return `₹${(p / 100).toFixed(2).replace(/\.00$/, "")}`;
-}
 
 export async function handlePaid(ctx: HandlerContext, cmd: PaidCmd): Promise<HandlerResult> {
   if (!ctx.msg.groupId) {
@@ -40,12 +38,15 @@ async function buildPaidMenu(ctx: HandlerContext): Promise<HandlerResult> {
     }];
   }
 
+  const group = await getGroup(ctx.db as any, ctx.msg.groupId!);
+  const currency = group?.currency ?? "INR";
+
   const rows: InlineKeyboardButton[][] = [];
   for (const d of myDebts) {
     const creditor = await getUser(ctx.db as any, d.toUserId);
     const name = creditor?.displayName ?? d.toUserId;
     rows.push([{
-      text: `${name} — ${rupees(d.amountPaise)}`,
+      text: `${name} — ${formatMoney(d.amountPaise, currency)}`,
       callbackData: `paid:${d.toUserId}:${d.amountPaise}`,
     }]);
   }
@@ -73,6 +74,9 @@ async function runPaidSettle(ctx: HandlerContext, toUserId: string, amountPaise:
   );
   owedToUser.sort((a, b) => a.id - b.id);
 
+  const group = await getGroup(ctx.db as any, ctx.msg.groupId!);
+  const currency = group?.currency ?? "INR";
+
   // Greedy settle: oldest splits first, accumulate as many as fit under the paid amount.
   let actuallySettled = 0;
   const toSettle: number[] = [];
@@ -88,18 +92,18 @@ async function runPaidSettle(ctx: HandlerContext, toUserId: string, amountPaise:
       null,
     );
     const hint = smallest !== null
-      ? ` Smallest unsettled split owed to that user is ${rupees(smallest)}.`
+      ? ` Smallest unsettled split owed to that user is ${formatMoney(smallest, currency)}.`
       : "";
     return [{
       to: ctx.msg.groupId!,
-      text: `Couldn't settle anything with ${rupees(amountPaise)}.${hint}`,
+      text: `Couldn't settle anything with ${formatMoney(amountPaise, currency)}.${hint}`,
       replyToRawId: ctx.msg.rawId,
     }];
   }
   await markSplitsSettled(ctx.db as any, toSettle);
   return [{
     to: ctx.msg.groupId!,
-    text: `✅ ${rupees(actuallySettled)} marked settled (${toSettle.length} split${toSettle.length === 1 ? "" : "s"}).`,
+    text: `✅ ${formatMoney(actuallySettled, currency)} marked settled (${toSettle.length} split${toSettle.length === 1 ? "" : "s"}).`,
     replyToRawId: ctx.msg.rawId,
   }];
 }

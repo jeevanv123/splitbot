@@ -7,7 +7,7 @@ To get going:
 2. Run /setprivacy → Disable in @BotFather so I can read group messages.
 3. In the group, try /split 600 cab or drop a bill photo.
 
-Commands: /split /balance /settle /paid /upi /bills /history /reset /help`;
+Commands: /split /balance /settle /paid /upi /bills /history /currency /reset /help`;
 
 export async function handleStart(ctx: HandlerContext): Promise<HandlerResult> {
   return [{

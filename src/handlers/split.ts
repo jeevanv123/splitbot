@@ -1,15 +1,11 @@
 import type { HandlerContext, HandlerResult } from "./context.js";
 import type { ParsedCommand } from "../parser/slash.js";
 import { upsertUser } from "../repo/users.js";
-import { upsertGroup } from "../repo/groups.js";
+import { upsertGroup, getGroup } from "../repo/groups.js";
 import { createExpenseWithSplits } from "../repo/expenses.js";
+import { formatMoney } from "../utils/money.js";
 
 type SplitCmd = Extract<ParsedCommand, { command: "split" }>;
-
-function rupees(paise: number): string {
-  const r = (paise / 100).toFixed(2).replace(/\.00$/, "");
-  return `₹${r}`;
-}
 
 export async function handleSplit(ctx: HandlerContext, cmd: SplitCmd): Promise<HandlerResult> {
   if (!ctx.msg.groupId) {
@@ -37,6 +33,9 @@ export async function handleSplit(ctx: HandlerContext, cmd: SplitCmd): Promise<H
   }
   await upsertUser(ctx.db as any, { id: ctx.msg.senderId, displayName: ctx.msg.senderDisplayName });
 
+  const group = await getGroup(ctx.db as any, groupId);
+  const currency = group?.currency ?? "INR";
+
   // Equal split with remainder distribution
   const n = participantIds.length;
   const base = Math.floor(cmd.amountPaise / n);
@@ -57,12 +56,12 @@ export async function handleSplit(ctx: HandlerContext, cmd: SplitCmd): Promise<H
   });
 
   // Build reply
-  const lines = [`✅ Split ${rupees(cmd.amountPaise)} (${cmd.description})`];
-  lines.push(`• ${ctx.msg.senderDisplayName} paid ${rupees(cmd.amountPaise)}`);
+  const lines = [`✅ Split ${formatMoney(cmd.amountPaise, currency)} (${cmd.description})`];
+  lines.push(`• ${ctx.msg.senderDisplayName} paid ${formatMoney(cmd.amountPaise, currency)}`);
   for (const s of splits) {
     if (s.userId === ctx.msg.senderId) continue;
     const name = memberMap.get(s.userId) ?? s.userId;
-    lines.push(`• ${name} owes ${ctx.msg.senderDisplayName} ${rupees(s.sharePaise)}`);
+    lines.push(`• ${name} owes ${ctx.msg.senderDisplayName} ${formatMoney(s.sharePaise, currency)}`);
   }
   lines.push("Use /balance to see totals.");
 

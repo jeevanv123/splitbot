@@ -2,12 +2,10 @@ import type { HandlerContext, HandlerResult } from "./context.js";
 import type { InlineKeyboardButton } from "../types/messages.js";
 import { listExpenses } from "../repo/expenses.js";
 import { getUser } from "../repo/users.js";
+import { getGroup } from "../repo/groups.js";
+import { formatMoney } from "../utils/money.js";
 
 const HISTORY_LIMIT = 10;
-
-function rupees(p: number): string {
-  return `₹${(p / 100).toFixed(2).replace(/\.00$/, "")}`;
-}
 
 function relativeAgo(then: Date, now: Date): string {
   const ms = now.getTime() - then.getTime();
@@ -38,6 +36,9 @@ export async function handleHistory(ctx: HandlerContext): Promise<HandlerResult>
     }];
   }
 
+  const group = await getGroup(ctx.db as any, ctx.msg.groupId);
+  const currency = group?.currency ?? "INR";
+
   const recent = all.slice(0, HISTORY_LIMIT);
   const now = ctx.msg.receivedAt ?? new Date();
 
@@ -48,9 +49,9 @@ export async function handleHistory(ctx: HandlerContext): Promise<HandlerResult>
     const payer = await getUser(ctx.db as any, e.paidByUserId);
     const payerName = payer?.displayName ?? e.paidByUserId;
     const desc = e.description?.trim() || "expense";
-    lines.push(`${i}. ${rupees(e.amountPaise)} ${desc} — paid by ${payerName}, ${relativeAgo(e.createdAt, now)}`);
+    lines.push(`${i}. ${formatMoney(e.amountPaise, currency)} ${desc} — paid by ${payerName}, ${relativeAgo(e.createdAt, now)}`);
     keyboard.push([{
-      text: `🗑 Delete #${i} (${rupees(e.amountPaise)})`,
+      text: `🗑 Delete #${i} (${formatMoney(e.amountPaise, currency)})`,
       callbackData: `del:${e.id}`,
     }]);
     i += 1;

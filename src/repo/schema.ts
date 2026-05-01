@@ -14,6 +14,7 @@ export const users = sqliteTable("users", {
 export const groups = sqliteTable("groups", {
   id: text("id").primaryKey(),                          // WA JID
   name: text("name").notNull(),
+  currency: text("currency").notNull().default("INR"),  // ISO 4217 code; UPI deep-links remain INR-only
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 

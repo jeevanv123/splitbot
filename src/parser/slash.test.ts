@@ -98,4 +98,19 @@ describe("parseSlash", () => {
   it("rejects unknown commands", () => {
     expect(parseSlash("/foobar")).toEqual({ command: "invalid", reason: expect.any(String) });
   });
+
+  it("parses /currency with no args (show current)", () => {
+    expect(parseSlash("/currency")).toEqual({ command: "currency", code: null });
+  });
+
+  it("parses /currency with valid 3-letter code (uppercased)", () => {
+    expect(parseSlash("/currency usd")).toEqual({ command: "currency", code: "USD" });
+    expect(parseSlash("/currency EUR")).toEqual({ command: "currency", code: "EUR" });
+  });
+
+  it("rejects /currency with bad code", () => {
+    expect(parseSlash("/currency US")).toEqual({ command: "invalid", reason: expect.any(String) });
+    expect(parseSlash("/currency dollars")).toEqual({ command: "invalid", reason: expect.any(String) });
+    expect(parseSlash("/currency 123")).toEqual({ command: "invalid", reason: expect.any(String) });
+  });
 });
