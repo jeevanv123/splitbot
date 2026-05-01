@@ -14,9 +14,11 @@ export async function handleCurrency(ctx: HandlerContext, cmd: CurrencyCmd): Pro
   const current = group?.currency ?? "INR";
 
   if (cmd.code === null) {
+    const isDefault = current === "INR";
+    const suffix = isDefault ? " (default)" : "";
     return [{
       to: ctx.msg.groupId,
-      text: `Current group currency: ${current}.\nChange with /currency <code>, e.g. /currency USD.`,
+      text: `Current group currency: ${current}${suffix}.\nChange with /currency <code>, e.g. /currency USD.\nReset to default with /currency INR.`,
       replyToRawId: ctx.msg.rawId,
     }];
   }

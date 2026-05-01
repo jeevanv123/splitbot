@@ -15,6 +15,7 @@ export async function upsertGroup(db: AnyDb, input: UpsertGroupInput): Promise<v
     return;
   }
   // New group: rely on schema default ("INR") for currency.
+  // `currency` is intentionally omitted; schema default ("INR") fires.
   await db.insert(schema.groups).values({ id: input.id, name: input.name, createdAt: new Date() });
 }
 

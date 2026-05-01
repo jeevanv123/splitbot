@@ -11,7 +11,7 @@ Commands:
   /paid @user <amt>  Mark a settlement done after paying
   /bills        List pending bill drafts in this group
   /history      Recent expenses with delete buttons (mistakes happen)
-  /currency [code]  View or set group currency (e.g. /currency USD). UPI links are INR-only.
+  /currency <code>  View/set group currency (default INR; e.g. /currency USD). UPI links are INR-only.
   /reset        Wipe all expenses + drafts in this group (no confirmation!)
   /help         This message
 

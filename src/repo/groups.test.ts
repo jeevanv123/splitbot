@@ -33,6 +33,12 @@ describe("groups repo", () => {
     expect((await getGroup(db, "g1@g.us"))?.currency).toBe("INR");
   });
 
+  it("defaults currency to INR for newly upserted groups", async () => {
+    await upsertGroup(db, { id: "g_default", name: "G" });
+    const g = await getGroup(db, "g_default");
+    expect(g?.currency).toBe("INR");
+  });
+
   it("setGroupCurrency updates currency", async () => {
     await upsertGroup(db, { id: "g1@g.us", name: "Goa Trip" });
     await setGroupCurrency(db, "g1@g.us", "USD");
