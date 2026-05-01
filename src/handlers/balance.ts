@@ -1,6 +1,7 @@
 import type { HandlerContext, HandlerResult } from "./context.js";
 import { netBalances } from "../repo/splits.js";
 import { getUser } from "../repo/users.js";
+import { simplify } from "../services/split/simplify.js";
 
 function rupees(paise: number): string {
   const r = (paise / 100).toFixed(2).replace(/\.00$/, "");
@@ -37,6 +38,20 @@ export async function handleBalance(ctx: HandlerContext): Promise<HandlerResult>
       lines.push(`• ${name} owes ${rupees(-b.netPaise)}`);
     }
   }
+
+  const settlements = simplify(nonZero);
+  if (settlements.length > 0) {
+    lines.push("");
+    lines.push("To settle:");
+    for (const s of settlements) {
+      const from = await getUser(ctx.db as any, s.fromUserId);
+      const to = await getUser(ctx.db as any, s.toUserId);
+      const fromName = from?.displayName ?? s.fromUserId;
+      const toName = to?.displayName ?? s.toUserId;
+      lines.push(`• ${fromName} → ${toName}: ${rupees(s.amountPaise)}`);
+    }
+  }
+
   lines.push("");
   lines.push("Tap /settle in DM with me to get UPI links for what you owe.");
 

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import * as Sentry from "@sentry/node";
 import Anthropic from "@anthropic-ai/sdk";
 import AnthropicBedrock from "@anthropic-ai/bedrock-sdk";
 import Fastify from "fastify";
@@ -28,7 +29,17 @@ function defaultModelFor(provider: "anthropic" | "bedrock"): string {
 
 async function main(): Promise<void> {
   const config = loadConfig();
+  if (config.SENTRY_DSN) {
+    Sentry.init({
+      dsn: config.SENTRY_DSN,
+      tracesSampleRate: 0,
+      sendDefaultPii: false,
+    });
+  }
   const logger = pino({ level: config.LOG_LEVEL });
+  if (config.SENTRY_DSN) {
+    logger.info("Sentry enabled");
+  }
   const db = initDb(config.DATABASE_URL);
 
   const llm = config.LLM_PROVIDER === "bedrock"
@@ -46,6 +57,21 @@ async function main(): Promise<void> {
       if (msg.groupId) {
         await upsertGroup(db as any, { id: msg.groupId, name: "Group" });
         await recordGroupMember(db as any, msg.groupId, msg.senderId);
+
+        // If this is one of the first messages we've seen in this group, also seed admins.
+        // Cheap heuristic: count members; if <= 2, fetch and add admins.
+        const known = await listGroupMembers(db as any, msg.groupId);
+        if (known.length <= 2) {
+          try {
+            const admins = await tg.getChatAdmins(msg.groupId);
+            for (const a of admins) {
+              await upsertUser(db as any, { id: a.userId, displayName: a.displayName });
+              await recordGroupMember(db as any, msg.groupId, a.userId);
+            }
+          } catch (e) {
+            logger.warn({ err: e }, "failed to seed admins");
+          }
+        }
       }
 
       const groupMembers = msg.groupId
@@ -75,6 +101,7 @@ async function main(): Promise<void> {
       }
     } catch (err) {
       logger.error({ err }, "router/handler error");
+      Sentry.captureException(err, { tags: { phase: "message_handler" } });
       // Never let an error kill the bot.
     }
   });
@@ -180,6 +207,7 @@ async function main(): Promise<void> {
       }
     } catch (err) {
       logger.error({ err }, "callback processing error");
+      Sentry.captureException(err, { tags: { phase: "callback_handler" } });
     }
   });
 
@@ -195,6 +223,7 @@ async function main(): Promise<void> {
     logger.info({ signal }, "shutting down");
     try { await tg.stop(); } catch (e) { logger.error({ err: e }, "tg stop failed"); }
     try { await fastify.close(); } catch (e) { logger.error({ err: e }, "fastify close failed"); }
+    try { await Sentry.close(2000); } catch { /* swallow */ }
     process.exit(0);
   };
   process.on("SIGINT", () => void shutdown("SIGINT"));

@@ -31,6 +31,9 @@ export interface TgClient {
     chatId: string,
     userId: string,
   ): Promise<{ userId: string; displayName: string } | null>;
+  getChatAdmins(
+    chatId: string,
+  ): Promise<{ userId: string; displayName: string }[]>;
 }
 
 export interface CreateTgBotArgs {
@@ -244,6 +247,20 @@ export function createTgBot({ token, logger }: CreateTgBotArgs): TgClient {
         return { userId: String(u.id), displayName: displayNameFromUser(u) };
       } catch {
         return null;
+      }
+    },
+    async getChatAdmins(chatId) {
+      try {
+        const admins = await bot.api.getChatAdministrators(parseChatId(chatId));
+        return admins
+          .filter((a) => !a.user.is_bot)
+          .map((a) => ({
+            userId: String(a.user.id),
+            displayName: displayNameFromUser(a.user),
+          }));
+      } catch (e) {
+        logger.warn({ err: e }, "getChatAdministrators failed");
+        return [];
       }
     },
   };

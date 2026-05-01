@@ -45,6 +45,8 @@ describe("handleBalance", () => {
     expect(replies[0]!.replyToRawId).toBe("1");
     expect(replies[0]!.text).toContain("Anu is owed ₹5");
     expect(replies[0]!.text).toContain("Beta owes ₹5");
+    expect(replies[0]!.text).toContain("To settle:");
+    expect(replies[0]!.text).toContain("Beta → Anu: ₹5");
   });
 
   it("reports settled-up when all balances are zero", async () => {
