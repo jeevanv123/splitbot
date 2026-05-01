@@ -2,11 +2,18 @@ import { describe, it, expect, beforeEach } from "vitest";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { eq } from "drizzle-orm";
 import * as schema from "./schema.js";
 import { upsertUser } from "./users.js";
 import { upsertGroup } from "./groups.js";
 import { createExpenseWithSplits, deleteExpense, listExpenses } from "./expenses.js";
-import { netBalances, listUnsettledSplits, markSplitsSettled } from "./splits.js";
+import {
+  netBalances,
+  listUnsettledSplits,
+  markSplitsSettled,
+  findStaleUnsettledSplits,
+  markSplitsReminded,
+} from "./splits.js";
 
 function makeTestDb() {
   const sqlite = new Database(":memory:");
@@ -98,6 +105,80 @@ describe("expenses + splits", () => {
   it("deleteExpense returns false when the id does not exist", async () => {
     const ok = await deleteExpense(db, 99999);
     expect(ok).toBe(false);
+  });
+
+  describe("reminders", () => {
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = new Date("2026-04-30T12:00:00Z");
+    const olderThan = new Date(now.getTime() - SEVEN_DAYS_MS);
+    const oldDate = new Date(now.getTime() - SEVEN_DAYS_MS - 24 * 60 * 60 * 1000); // 8 days old
+    const recentDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);              // 1 day old
+
+    async function backdateExpense(id: number, createdAt: Date) {
+      await db.update(schema.expenses)
+        .set({ createdAt })
+        .where(eq(schema.expenses.id, id));
+    }
+
+    it("returns nothing when no unsettled splits exist", async () => {
+      const stale = await findStaleUnsettledSplits(db, olderThan);
+      expect(stale).toHaveLength(0);
+    });
+
+    it("returns nothing when splits exist but expense is recent", async () => {
+      const id = await createExpenseWithSplits(db, {
+        groupId: "g1", paidByUserId: "+a", amountPaise: 200,
+        description: "fresh", source: "slash", draftId: null,
+        splits: [
+          { userId: "+a", sharePaise: 100 },
+          { userId: "+b", sharePaise: 100 },
+        ],
+      });
+      await backdateExpense(id, recentDate);
+      const stale = await findStaleUnsettledSplits(db, olderThan);
+      expect(stale).toHaveLength(0);
+    });
+
+    it("returns rows for old + unsettled + un-reminded splits", async () => {
+      const id = await createExpenseWithSplits(db, {
+        groupId: "g1", paidByUserId: "+a", amountPaise: 300,
+        description: "old", source: "slash", draftId: null,
+        splits: [
+          { userId: "+a", sharePaise: 100 },
+          { userId: "+b", sharePaise: 100 },
+          { userId: "+c", sharePaise: 100 },
+        ],
+      });
+      await backdateExpense(id, oldDate);
+      const stale = await findStaleUnsettledSplits(db, olderThan);
+      // +a's split is to themselves (a paid for a) — but +a's row IS still unsettled in this schema.
+      // We're returning all unsettled rows, including the payer's own share.
+      expect(stale).toHaveLength(3);
+      const debtors = stale.map((s) => s.userId).sort();
+      expect(debtors).toEqual(["+a", "+b", "+c"]);
+      for (const s of stale) {
+        expect(s.groupId).toBe("g1");
+        expect(s.paidByUserId).toBe("+a");
+        expect(s.expenseId).toBe(id);
+      }
+    });
+
+    it("after markSplitsReminded, those splits no longer appear", async () => {
+      const id = await createExpenseWithSplits(db, {
+        groupId: "g1", paidByUserId: "+a", amountPaise: 200,
+        description: "old", source: "slash", draftId: null,
+        splits: [
+          { userId: "+a", sharePaise: 100 },
+          { userId: "+b", sharePaise: 100 },
+        ],
+      });
+      await backdateExpense(id, oldDate);
+      const before = await findStaleUnsettledSplits(db, olderThan);
+      expect(before.length).toBeGreaterThan(0);
+      await markSplitsReminded(db, before.map((s) => s.id));
+      const after = await findStaleUnsettledSplits(db, olderThan);
+      expect(after).toHaveLength(0);
+    });
   });
 
   it("markSplitsSettled excludes settled splits from balance", async () => {

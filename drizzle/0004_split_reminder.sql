@@ -1,0 +1,1 @@
+ALTER TABLE `splits` ADD `reminder_sent_at` integer;

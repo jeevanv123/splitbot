@@ -59,6 +59,7 @@ export const splits = sqliteTable(
       .references(() => users.id, { onDelete: "restrict" }),
     sharePaise: integer("share_paise").notNull(),
     settledAt: integer("settled_at", { mode: "timestamp" }),
+    reminderSentAt: integer("reminder_sent_at", { mode: "timestamp" }),
   },
   (t) => ({
     byExpense: index("idx_splits_expense").on(t.expenseId),

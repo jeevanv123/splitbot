@@ -17,7 +17,9 @@ Commands:
 
 Magic: drop a bill photo in the group → I'll itemize it. Reply in plain English
 ("Anu had pasta, Rohit had pizza") and I'll compute the split, OR tap
-"Split equally" to divide it across everyone in the group.`;
+"Split equally" to divide it across everyone in the group.
+
+🔔 I'll gently remind your group once a day if any settlement is older than a week.`;
 
 export async function handleHelp(ctx: HandlerContext): Promise<HandlerResult> {
   return [{ to: ctx.msg.groupId ?? ctx.msg.senderId, text: HELP, replyToRawId: ctx.msg.rawId }];

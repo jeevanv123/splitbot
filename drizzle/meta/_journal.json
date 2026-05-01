@@ -29,6 +29,13 @@
       "when": 1777667603439,
       "tag": "0003_group_currency",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1777668153350,
+      "tag": "0004_split_reminder",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,7 @@ import { listPendingDraftsInGroup, markDraftAssigned } from "./repo/drafts.js";
 import { equalSplit } from "./services/split/equalSplit.js";
 import { createTgBot } from "./tg/bot.js";
 import { route } from "./router/index.js";
+import { runReminders } from "./services/reminders/runReminders.js";
 import type { HandlerContext } from "./handlers/context.js";
 import type { IncomingMessage } from "./types/messages.js";
 
@@ -218,9 +219,38 @@ async function main(): Promise<void> {
   await fastify.listen({ port: 3000, host: "0.0.0.0" });
   logger.info("Splitbot up — health on :3000/health");
 
+  // Daily reminder scheduler: post a single nudge per group with settlements 7+ days old.
+  const REMINDERS_INTERVAL_MS = 24 * 60 * 60 * 1000;
+  const REMINDERS_INITIAL_DELAY_MS = 60 * 1000;     // wait 1 min after boot
+
+  const tickReminders = async () => {
+    try {
+      const result = await runReminders({
+        db,
+        logger,
+        send: async (chatId, text) => {
+          const r = await tg.send(chatId, text);
+          return { ok: r.ok };
+        },
+      });
+      logger.info(result, "reminder tick complete");
+    } catch (e) {
+      logger.error({ err: e }, "reminder tick failed");
+      Sentry.captureException(e, { tags: { phase: "reminders" } });
+    }
+  };
+
+  let remindersInterval: NodeJS.Timeout | null = null;
+  const remindersStartTimer = setTimeout(() => {
+    void tickReminders();
+    remindersInterval = setInterval(() => { void tickReminders(); }, REMINDERS_INTERVAL_MS);
+  }, REMINDERS_INITIAL_DELAY_MS);
+
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info({ signal }, "shutting down");
+    clearTimeout(remindersStartTimer);
+    if (remindersInterval) clearInterval(remindersInterval);
     try { await tg.stop(); } catch (e) { logger.error({ err: e }, "tg stop failed"); }
     try { await fastify.close(); } catch (e) { logger.error({ err: e }, "fastify close failed"); }
     try { await Sentry.close(2000); } catch { /* swallow */ }
