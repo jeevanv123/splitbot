@@ -78,6 +78,37 @@ describe("misc handlers", () => {
     expect(replies[0]!.text).toContain("₹500");
   });
 
+  it("/paid with no args returns interactive menu of debts", async () => {
+    // Seed an expense where +a paid; +b owes
+    await createExpenseWithSplits(db as any, {
+      groupId: "g1", paidByUserId: "+a", amountPaise: 1000,
+      description: "x", source: "slash", draftId: null,
+      splits: [{ userId: "+a", sharePaise: 500 }, { userId: "+b", sharePaise: 500 }],
+    });
+    const ctx: HandlerContext = {
+      db: db as any, llm,
+      model: "test-model",
+      msg: dummyMsg({ senderId: "+b", senderDisplayName: "Beta" }),
+      groupMembers: [],
+    };
+    const replies = await handlePaid(ctx, { command: "paid", toUserId: null, amountPaise: null });
+    expect(replies[0]!.text).toContain("Who did you pay?");
+    expect(replies[0]!.keyboard).toBeDefined();
+    expect(replies[0]!.keyboard![0]![0]!.text).toContain("Anu");
+    expect(replies[0]!.keyboard![0]![0]!.callbackData).toMatch(/^paid:\+a:500$/);
+  });
+
+  it("/paid with no args when no debts says you're settled", async () => {
+    const ctx: HandlerContext = {
+      db: db as any, llm,
+      model: "test-model",
+      msg: dummyMsg({ senderId: "+b", senderDisplayName: "Beta" }),
+      groupMembers: [],
+    };
+    const replies = await handlePaid(ctx, { command: "paid", toUserId: null, amountPaise: null });
+    expect(replies[0]!.text).toMatch(/don't owe/i);
+  });
+
   it("/bills lists pending drafts in the group", async () => {
     await createDraft(db as any, {
       groupId: "g1", uploaderId: "+a",

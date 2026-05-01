@@ -8,7 +8,7 @@ export type ParsedCommand =
   | { command: "reset" }
   | { command: "help" }
   | { command: "upi"; upiId: string }
-  | { command: "paid"; toUserId: string; amountPaise: Paise }
+  | { command: "paid"; toUserId: string | null; amountPaise: Paise | null }
   | { command: "invalid"; reason: string };
 
 const UPI_RE = /^[\w.+-]+@[\w.-]+$/;
@@ -61,6 +61,10 @@ export function parseSlash(text: string): ParsedCommand | null {
     }
 
     case "paid": {
+      if (!rest) {
+        // No args → handler will show interactive menu
+        return { command: "paid", toUserId: null, amountPaise: null };
+      }
       const mentions = extractMentions(rest);
       const amountStr = rest.replace(MENTION_RE, "").trim();
       const amountPaise = parseAmountToPaise(amountStr);

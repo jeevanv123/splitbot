@@ -78,10 +78,13 @@ describe("parseSlash", () => {
     });
   });
 
+  it("parses /paid with no args as menu request", () => {
+    expect(parseSlash("/paid")).toEqual({ command: "paid", toUserId: null, amountPaise: null });
+  });
+
   it("returns invalid for malformed slash commands", () => {
     expect(parseSlash("/split")).toEqual({ command: "invalid", reason: expect.any(String) });
     expect(parseSlash("/upi")).toEqual({ command: "invalid", reason: expect.any(String) });
-    expect(parseSlash("/paid")).toEqual({ command: "invalid", reason: expect.any(String) });
   });
 
   it("rejects unknown commands", () => {

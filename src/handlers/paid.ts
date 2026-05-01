@@ -1,7 +1,10 @@
 import { inArray } from "drizzle-orm";
 import type { HandlerContext, HandlerResult } from "./context.js";
 import type { ParsedCommand } from "../parser/slash.js";
-import { listUnsettledSplits, markSplitsSettled } from "../repo/splits.js";
+import type { InlineKeyboardButton } from "../types/messages.js";
+import { listUnsettledSplits, markSplitsSettled, netBalances } from "../repo/splits.js";
+import { simplify } from "../services/split/simplify.js";
+import { getUser } from "../repo/users.js";
 import * as schema from "../repo/schema.js";
 
 type PaidCmd = Extract<ParsedCommand, { command: "paid" }>;
@@ -14,17 +17,59 @@ export async function handlePaid(ctx: HandlerContext, cmd: PaidCmd): Promise<Han
   if (!ctx.msg.groupId) {
     return [{ to: ctx.msg.senderId, text: "Use /paid inside a group." }];
   }
-  const unsettled = await listUnsettledSplits(ctx.db as any, ctx.msg.groupId);
+
+  // No-args case: show interactive menu of debts.
+  if (cmd.toUserId === null && cmd.amountPaise === null) {
+    return await buildPaidMenu(ctx);
+  }
+
+  // Existing full-settle flow: cmd.toUserId and cmd.amountPaise are set.
+  return await runPaidSettle(ctx, cmd.toUserId!, cmd.amountPaise!);
+}
+
+async function buildPaidMenu(ctx: HandlerContext): Promise<HandlerResult> {
+  const balances = await netBalances(ctx.db as any, ctx.msg.groupId!);
+  const settlements = simplify(balances);
+  const myDebts = settlements.filter((s) => s.fromUserId === ctx.msg.senderId);
+
+  if (myDebts.length === 0) {
+    return [{
+      to: ctx.msg.groupId!,
+      text: "✅ You don't owe anyone in this group.",
+      replyToRawId: ctx.msg.rawId,
+    }];
+  }
+
+  const rows: InlineKeyboardButton[][] = [];
+  for (const d of myDebts) {
+    const creditor = await getUser(ctx.db as any, d.toUserId);
+    const name = creditor?.displayName ?? d.toUserId;
+    rows.push([{
+      text: `${name} — ${rupees(d.amountPaise)}`,
+      callbackData: `paid:${d.toUserId}:${d.amountPaise}`,
+    }]);
+  }
+
+  return [{
+    to: ctx.msg.groupId!,
+    text: "💸 Who did you pay?",
+    replyToRawId: ctx.msg.rawId,
+    keyboard: rows,
+  }];
+}
+
+async function runPaidSettle(ctx: HandlerContext, toUserId: string, amountPaise: number): Promise<HandlerResult> {
+  const unsettled = await listUnsettledSplits(ctx.db as any, ctx.msg.groupId!);
   // Splits where THIS user owes the recipient. We mark splits paid by the recipient's
   // expenses where the sender's share is unsettled, oldest first, until amount is covered.
   const candidates = unsettled.filter((s) => s.userId === ctx.msg.senderId);
   if (candidates.length === 0) {
-    return [{ to: ctx.msg.groupId, text: "Nothing unsettled to mark.", replyToRawId: ctx.msg.rawId }];
+    return [{ to: ctx.msg.groupId!, text: "Nothing unsettled to mark.", replyToRawId: ctx.msg.rawId }];
   }
   const expenseIds = candidates.map((c) => c.expenseId);
   const expenses = await (ctx.db as any).select().from(schema.expenses).where(inArray(schema.expenses.id, expenseIds));
   const owedToUser = candidates.filter((c) =>
-    expenses.find((e: any) => e.id === c.expenseId)?.paidByUserId === cmd.toUserId,
+    expenses.find((e: any) => e.id === c.expenseId)?.paidByUserId === toUserId,
   );
   owedToUser.sort((a, b) => a.id - b.id);
 
@@ -32,7 +77,7 @@ export async function handlePaid(ctx: HandlerContext, cmd: PaidCmd): Promise<Han
   let actuallySettled = 0;
   const toSettle: number[] = [];
   for (const s of owedToUser) {
-    if (s.sharePaise <= cmd.amountPaise - actuallySettled) {
+    if (s.sharePaise <= amountPaise - actuallySettled) {
       toSettle.push(s.id);
       actuallySettled += s.sharePaise;
     }
@@ -46,14 +91,14 @@ export async function handlePaid(ctx: HandlerContext, cmd: PaidCmd): Promise<Han
       ? ` Smallest unsettled split owed to that user is ${rupees(smallest)}.`
       : "";
     return [{
-      to: ctx.msg.groupId,
-      text: `Couldn't settle anything with ${rupees(cmd.amountPaise)}.${hint}`,
+      to: ctx.msg.groupId!,
+      text: `Couldn't settle anything with ${rupees(amountPaise)}.${hint}`,
       replyToRawId: ctx.msg.rawId,
     }];
   }
   await markSplitsSettled(ctx.db as any, toSettle);
   return [{
-    to: ctx.msg.groupId,
+    to: ctx.msg.groupId!,
     text: `✅ ${rupees(actuallySettled)} marked settled (${toSettle.length} split${toSettle.length === 1 ? "" : "s"}).`,
     replyToRawId: ctx.msg.rawId,
   }];

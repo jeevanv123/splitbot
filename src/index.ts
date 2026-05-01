@@ -11,6 +11,7 @@ import { recordGroupMember, listGroupMembers } from "./repo/groupMembers.js";
 import { createTgBot } from "./tg/bot.js";
 import { route } from "./router/index.js";
 import type { HandlerContext } from "./handlers/context.js";
+import type { IncomingMessage } from "./types/messages.js";
 
 function defaultModelFor(provider: "anthropic" | "bedrock"): string {
   return provider === "bedrock"
@@ -48,7 +49,7 @@ async function main(): Promise<void> {
       const handler = route(ctx);
       const replies = await handler.run(ctx);
       for (const r of replies) {
-        const result = await tg.send(r.to, r.text, r.replyToRawId);
+        const result = await tg.send(r.to, r.text, r.replyToRawId, r.keyboard);
         if (result.ok) continue;
 
         if (result.reason === "dm_blocked" && msg.groupId) {
@@ -68,6 +69,51 @@ async function main(): Promise<void> {
     } catch (err) {
       logger.error({ err }, "router/handler error");
       // Never let an error kill the bot.
+    }
+  });
+
+  tg.onCallback(async (event) => {
+    // Always answer the callback first to clear the spinner.
+    await tg.answerCallback(event.queryId);
+
+    try {
+      const [kind, ...rest] = event.data.split(":");
+      if (kind !== "paid" || rest.length !== 2) return;
+      const [creditorId, paiseStr] = rest;
+      if (!creditorId || !paiseStr) return;
+      const amountPaise = parseInt(paiseStr, 10);
+      if (Number.isNaN(amountPaise) || amountPaise <= 0) return;
+
+      if (!event.chatId) return;
+
+      // Build a synthetic IncomingMessage so we can reuse handlePaid's existing settle path.
+      const synth: IncomingMessage = {
+        kind: "text",
+        groupId: event.chatId,
+        senderId: event.fromUserId,
+        senderDisplayName: event.fromDisplayName,
+        text: `/paid @${creditorId} ${(amountPaise / 100).toFixed(2)}`,
+        receivedAt: new Date(),
+        rawId: event.messageId,
+      };
+
+      // Auto-track sender (mirrors the message handler's behavior).
+      await upsertUser(db as any, { id: synth.senderId, displayName: synth.senderDisplayName });
+      await upsertGroup(db as any, { id: synth.groupId!, name: "Group" });
+      await recordGroupMember(db as any, synth.groupId!, synth.senderId);
+
+      const groupMembers = await listGroupMembers(db as any, synth.groupId!);
+      const ctx: HandlerContext = { db, llm, model, msg: synth, groupMembers };
+
+      // Call handlePaid directly with the parsed command (skipping parser since we know the shape).
+      const { handlePaid } = await import("./handlers/paid.js");
+      const replies = await handlePaid(ctx, { command: "paid", toUserId: creditorId, amountPaise });
+      for (const r of replies) {
+        const result = await tg.send(r.to, r.text, r.replyToRawId, r.keyboard);
+        if (!result.ok) logger.warn({ reason: result.reason }, "callback reply failed");
+      }
+    } catch (err) {
+      logger.error({ err }, "callback processing error");
     }
   });
 

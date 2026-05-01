@@ -6,11 +6,27 @@ export type SendResult =
   | { ok: true }
   | { ok: false; reason: "dm_blocked" | "other"; error: unknown };
 
+export interface CallbackEvent {
+  queryId: string;
+  data: string;
+  fromUserId: string;
+  fromDisplayName: string;
+  chatId: string;
+  messageId: string;
+}
+
 export interface TgClient {
   start(): Promise<void>;
   stop(): Promise<void>;
-  send(to: string, text: string, replyToRawId?: string): Promise<SendResult>;
+  send(
+    to: string,
+    text: string,
+    replyToRawId?: string,
+    keyboard?: { text: string; callbackData: string }[][],
+  ): Promise<SendResult>;
   onMessage(handler: (m: IncomingMessage) => Promise<void>): void;
+  onCallback(handler: (e: CallbackEvent) => Promise<void>): void;
+  answerCallback(queryId: string, text?: string): Promise<void>;
   getChatMember(
     chatId: string,
     userId: string,
@@ -36,6 +52,7 @@ const SPLITBOT_COMMANDS = [
 export function createTgBot({ token, logger }: CreateTgBotArgs): TgClient {
   const bot = new Bot(token);
   const handlers: Array<(m: IncomingMessage) => Promise<void>> = [];
+  const callbackHandlers: Array<(e: CallbackEvent) => Promise<void>> = [];
 
   // Map any Telegram message → IncomingMessage and dispatch.
   bot.on("message", async (ctx) => {
@@ -51,6 +68,31 @@ export function createTgBot({ token, logger }: CreateTgBotArgs): TgClient {
       }
     } catch (e) {
       logger.error({ err: e }, "failed to map telegram message");
+    }
+  });
+
+  // Dispatch inline-keyboard button taps to registered callback handlers.
+  bot.on("callback_query:data", async (ctx) => {
+    try {
+      const cb = ctx.callbackQuery;
+      if (!cb || !cb.data) return;
+      const event: CallbackEvent = {
+        queryId: cb.id,
+        data: cb.data,
+        fromUserId: String(cb.from.id),
+        fromDisplayName: displayNameFromUser(cb.from),
+        chatId: String(cb.message?.chat.id ?? ""),
+        messageId: String(cb.message?.message_id ?? ""),
+      };
+      for (const h of callbackHandlers) {
+        try {
+          await h(event);
+        } catch (e) {
+          logger.error({ err: e }, "callback handler error");
+        }
+      }
+    } catch (e) {
+      logger.error({ err: e }, "failed to process callback_query");
     }
   });
 
@@ -148,15 +190,23 @@ export function createTgBot({ token, logger }: CreateTgBotArgs): TgClient {
     async stop() {
       await bot.stop();
     },
-    async send(to, text, replyToRawId): Promise<SendResult> {
+    async send(to, text, replyToRawId, keyboard): Promise<SendResult> {
       const chatId = parseChatId(to);
       const replyParams = replyToRawId
         ? buildReplyParams(replyToRawId)
         : undefined;
+      const opts: Record<string, unknown> = {
+        ...(replyParams ? { reply_parameters: replyParams } : {}),
+      };
+      if (keyboard && keyboard.length > 0) {
+        opts.reply_markup = {
+          inline_keyboard: keyboard.map((row) =>
+            row.map((b) => ({ text: b.text, callback_data: b.callbackData })),
+          ),
+        };
+      }
       try {
-        await bot.api.sendMessage(chatId, text, {
-          ...(replyParams ? { reply_parameters: replyParams } : {}),
-        });
+        await bot.api.sendMessage(chatId, text, opts);
         return { ok: true };
       } catch (e: any) {
         // Telegram's "can't initiate conversation with a user" is 403 with that exact substring.
@@ -170,6 +220,16 @@ export function createTgBot({ token, logger }: CreateTgBotArgs): TgClient {
     },
     onMessage(h) {
       handlers.push(h);
+    },
+    onCallback(h) {
+      callbackHandlers.push(h);
+    },
+    async answerCallback(queryId, text) {
+      try {
+        await bot.api.answerCallbackQuery(queryId, text ? { text } : undefined);
+      } catch (e) {
+        logger.warn({ err: e }, "answerCallbackQuery failed");
+      }
     },
     async getChatMember(chatId, userId) {
       try {
