@@ -5,7 +5,7 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import * as schema from "./schema.js";
 import { upsertUser } from "./users.js";
 import { upsertGroup } from "./groups.js";
-import { createExpenseWithSplits, listExpenses } from "./expenses.js";
+import { createExpenseWithSplits, deleteExpense, listExpenses } from "./expenses.js";
 import { netBalances, listUnsettledSplits, markSplitsSettled } from "./splits.js";
 
 function makeTestDb() {
@@ -72,6 +72,32 @@ describe("expenses + splits", () => {
     })).rejects.toThrow();
     const list = await listExpenses(db, "g1");
     expect(list).toHaveLength(0);  // expense was rolled back
+  });
+
+  it("deleteExpense removes the expense and cascades splits", async () => {
+    const expenseId = await createExpenseWithSplits(db, {
+      groupId: "g1", paidByUserId: "+a", amountPaise: 200,
+      description: "to-delete", source: "slash", draftId: null,
+      splits: [
+        { userId: "+a", sharePaise: 100 },
+        { userId: "+b", sharePaise: 100 },
+      ],
+    });
+    const before = await listUnsettledSplits(db, "g1");
+    expect(before.some((s) => s.expenseId === expenseId)).toBe(true);
+
+    const ok = await deleteExpense(db, expenseId);
+    expect(ok).toBe(true);
+
+    const list = await listExpenses(db, "g1");
+    expect(list.find((e) => e.id === expenseId)).toBeUndefined();
+    const after = await listUnsettledSplits(db, "g1");
+    expect(after.some((s) => s.expenseId === expenseId)).toBe(false);
+  });
+
+  it("deleteExpense returns false when the id does not exist", async () => {
+    const ok = await deleteExpense(db, 99999);
+    expect(ok).toBe(false);
   });
 
   it("markSplitsSettled excludes settled splits from balance", async () => {

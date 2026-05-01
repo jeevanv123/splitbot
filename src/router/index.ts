@@ -8,6 +8,8 @@ import { handlePaid } from "../handlers/paid.js";
 import { handleBills } from "../handlers/bills.js";
 import { handleReset } from "../handlers/reset.js";
 import { handleHelp } from "../handlers/help.js";
+import { handleStart } from "../handlers/start.js";
+import { handleHistory } from "../handlers/history.js";
 import { handleImage } from "../handlers/image.js";
 import { handleFreeText } from "../handlers/freeText.js";
 
@@ -28,8 +30,10 @@ export function route(ctx: HandlerContext): Bound {
     case "upi":     return { name: "handleUpi", run: (c) => handleUpi(c, parsed) };
     case "paid":    return { name: "handlePaid", run: (c) => handlePaid(c, parsed) };
     case "bills":   return { name: "handleBills", run: handleBills };
+    case "history": return { name: "handleHistory", run: handleHistory };
     case "reset":   return { name: "handleReset", run: handleReset };
     case "help":    return { name: "handleHelp", run: handleHelp };
+    case "start":   return { name: "handleStart", run: handleStart };
     case "invalid": {
       return {
         name: "handleInvalid",

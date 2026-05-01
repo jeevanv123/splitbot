@@ -22,7 +22,7 @@ export interface TgClient {
     to: string,
     text: string,
     replyToRawId?: string,
-    keyboard?: { text: string; callbackData: string }[][],
+    keyboard?: { text: string; callbackData?: string; url?: string }[][],
   ): Promise<SendResult>;
   onMessage(handler: (m: IncomingMessage) => Promise<void>): void;
   onCallback(handler: (e: CallbackEvent) => Promise<void>): void;
@@ -39,12 +39,14 @@ export interface CreateTgBotArgs {
 }
 
 const SPLITBOT_COMMANDS = [
+  { command: "start",   description: "Get started" },
   { command: "split",   description: "Split an expense (e.g. /split 600 cab)" },
   { command: "balance", description: "Show group balances" },
   { command: "settle",  description: "Get UPI links for who you owe (DM)" },
   { command: "upi",     description: "Save your UPI id (e.g. /upi anu@okhdfc)" },
   { command: "paid",    description: "Mark a settlement done (e.g. /paid @user 100)" },
   { command: "bills",   description: "List pending bill drafts" },
+  { command: "history", description: "List recent expenses with delete buttons" },
   { command: "help",    description: "Show usage" },
   { command: "reset",   description: "Wipe all expenses + drafts in this group" },
 ];
@@ -201,7 +203,10 @@ export function createTgBot({ token, logger }: CreateTgBotArgs): TgClient {
       if (keyboard && keyboard.length > 0) {
         opts.reply_markup = {
           inline_keyboard: keyboard.map((row) =>
-            row.map((b) => ({ text: b.text, callback_data: b.callbackData })),
+            row.map((b) => {
+              if (b.url) return { text: b.text, url: b.url };
+              return { text: b.text, callback_data: b.callbackData! };
+            }),
           ),
         };
       }

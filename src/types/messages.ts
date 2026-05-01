@@ -1,6 +1,8 @@
 export interface InlineKeyboardButton {
   text: string;
-  callbackData: string;        // <= 64 bytes (Telegram limit)
+  // Exactly one of `callbackData` or `url` should be set.
+  callbackData?: string;       // tap → bot receives callback (<= 64 bytes; Telegram limit)
+  url?: string;                // tap → opens URL (e.g. upi://pay?...)
 }
 
 export type IncomingKind = "text" | "image" | "callback";

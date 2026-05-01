@@ -5,8 +5,10 @@ export type ParsedCommand =
   | { command: "balance" }
   | { command: "settle" }
   | { command: "bills" }
+  | { command: "history" }
   | { command: "reset" }
   | { command: "help" }
+  | { command: "start" }
   | { command: "upi"; upiId: string }
   | { command: "paid"; toUserId: string | null; amountPaise: Paise | null }
   | { command: "invalid"; reason: string };
@@ -49,10 +51,14 @@ export function parseSlash(text: string): ParsedCommand | null {
       return { command: "settle" };
     case "bills":
       return { command: "bills" };
+    case "history":
+      return { command: "history" };
     case "reset":
       return { command: "reset" };
     case "help":
       return { command: "help" };
+    case "start":
+      return { command: "start" };
 
     case "upi": {
       if (!rest) return { command: "invalid", reason: "Usage: /upi <upi-id>" };

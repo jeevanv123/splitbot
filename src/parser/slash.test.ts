@@ -63,6 +63,14 @@ describe("parseSlash", () => {
     expect(parseSlash("/reset")).toEqual({ command: "reset" });
   });
 
+  it("parses /start with no args", () => {
+    expect(parseSlash("/start")).toEqual({ command: "start" });
+  });
+
+  it("parses /history with no args", () => {
+    expect(parseSlash("/history")).toEqual({ command: "history" });
+  });
+
   it("parses /upi", () => {
     expect(parseSlash("/upi anu@okhdfc")).toEqual({
       command: "upi",

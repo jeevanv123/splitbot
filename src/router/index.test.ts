@@ -40,4 +40,12 @@ describe("route", () => {
   it("routes /reset to reset handler", async () => {
     expect(route(baseCtx("/reset")).name).toBe("handleReset");
   });
+
+  it("routes /start to start handler", async () => {
+    expect(route(baseCtx("/start")).name).toBe("handleStart");
+  });
+
+  it("routes /history to history handler", async () => {
+    expect(route(baseCtx("/history")).name).toBe("handleHistory");
+  });
 });

@@ -55,6 +55,13 @@ export async function deleteAllExpensesInGroup(db: AnyDb, groupId: string): Prom
   return result.length;
 }
 
+// Deletes a single expense by id. Splits cascade-delete via FK onDelete: "cascade".
+// Returns true if the row existed and was deleted.
+export async function deleteExpense(db: AnyDb, expenseId: number): Promise<boolean> {
+  const result = await db.delete(schema.expenses).where(eq(schema.expenses.id, expenseId)).returning({ id: schema.expenses.id });
+  return result.length > 0;
+}
+
 export async function listExpenses(db: AnyDb, groupId: string): Promise<Expense[]> {
   const rows = await db.select().from(schema.expenses)
     .where(eq(schema.expenses.groupId, groupId))

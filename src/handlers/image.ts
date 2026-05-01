@@ -29,7 +29,7 @@ export async function handleImage(ctx: HandlerContext): Promise<HandlerResult> {
   await upsertGroup(ctx.db as any, { id: ctx.msg.groupId, name: "Group" });
   await upsertUser(ctx.db as any, { id: ctx.msg.senderId, displayName: ctx.msg.senderDisplayName });
 
-  await createDraft(ctx.db as any, {
+  const draftId = await createDraft(ctx.db as any, {
     groupId: ctx.msg.groupId,
     uploaderId: ctx.msg.senderId,
     bill: result.bill,
@@ -41,5 +41,6 @@ export async function handleImage(ctx: HandlerContext): Promise<HandlerResult> {
     to: ctx.msg.groupId,
     text: `📋 I see ${rupees(result.bill.totalPaise)} — ${items}.\nReply when you're ready: "who had what?"`,
     replyToRawId: ctx.msg.rawId,
+    keyboard: [[{ text: "Split equally", callbackData: `equal:${draftId}` }]],
   }];
 }

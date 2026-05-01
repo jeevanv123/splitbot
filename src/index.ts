@@ -8,10 +8,17 @@ import { initDb } from "./repo/db.js";
 import { upsertUser } from "./repo/users.js";
 import { upsertGroup } from "./repo/groups.js";
 import { recordGroupMember, listGroupMembers } from "./repo/groupMembers.js";
+import { createExpenseWithSplits, deleteExpense } from "./repo/expenses.js";
+import { listPendingDraftsInGroup, markDraftAssigned } from "./repo/drafts.js";
+import { equalSplit } from "./services/split/equalSplit.js";
 import { createTgBot } from "./tg/bot.js";
 import { route } from "./router/index.js";
 import type { HandlerContext } from "./handlers/context.js";
 import type { IncomingMessage } from "./types/messages.js";
+
+function rupees(p: number): string {
+  return `₹${(p / 100).toFixed(2).replace(/\.00$/, "")}`;
+}
 
 function defaultModelFor(provider: "anthropic" | "bedrock"): string {
   return provider === "bedrock"
@@ -78,39 +85,98 @@ async function main(): Promise<void> {
 
     try {
       const [kind, ...rest] = event.data.split(":");
-      if (kind !== "paid" || rest.length !== 2) return;
-      const [creditorId, paiseStr] = rest;
-      if (!creditorId || !paiseStr) return;
-      const amountPaise = parseInt(paiseStr, 10);
-      if (Number.isNaN(amountPaise) || amountPaise <= 0) return;
-
       if (!event.chatId) return;
 
-      // Build a synthetic IncomingMessage so we can reuse handlePaid's existing settle path.
-      const synth: IncomingMessage = {
-        kind: "text",
-        groupId: event.chatId,
-        senderId: event.fromUserId,
-        senderDisplayName: event.fromDisplayName,
-        text: `/paid @${creditorId} ${(amountPaise / 100).toFixed(2)}`,
-        receivedAt: new Date(),
-        rawId: event.messageId,
-      };
+      if (kind === "paid" && rest.length === 2) {
+        const [creditorId, paiseStr] = rest;
+        if (!creditorId || !paiseStr) return;
+        const amountPaise = parseInt(paiseStr, 10);
+        if (Number.isNaN(amountPaise) || amountPaise <= 0) return;
 
-      // Auto-track sender (mirrors the message handler's behavior).
-      await upsertUser(db as any, { id: synth.senderId, displayName: synth.senderDisplayName });
-      await upsertGroup(db as any, { id: synth.groupId!, name: "Group" });
-      await recordGroupMember(db as any, synth.groupId!, synth.senderId);
+        // Build a synthetic IncomingMessage so we can reuse handlePaid's existing settle path.
+        const synth: IncomingMessage = {
+          kind: "text",
+          groupId: event.chatId,
+          senderId: event.fromUserId,
+          senderDisplayName: event.fromDisplayName,
+          text: `/paid @${creditorId} ${(amountPaise / 100).toFixed(2)}`,
+          receivedAt: new Date(),
+          rawId: event.messageId,
+        };
 
-      const groupMembers = await listGroupMembers(db as any, synth.groupId!);
-      const ctx: HandlerContext = { db, llm, model, msg: synth, groupMembers };
+        // Auto-track sender (mirrors the message handler's behavior).
+        await upsertUser(db as any, { id: synth.senderId, displayName: synth.senderDisplayName });
+        await upsertGroup(db as any, { id: synth.groupId!, name: "Group" });
+        await recordGroupMember(db as any, synth.groupId!, synth.senderId);
 
-      // Call handlePaid directly with the parsed command (skipping parser since we know the shape).
-      const { handlePaid } = await import("./handlers/paid.js");
-      const replies = await handlePaid(ctx, { command: "paid", toUserId: creditorId, amountPaise });
-      for (const r of replies) {
-        const result = await tg.send(r.to, r.text, r.replyToRawId, r.keyboard);
-        if (!result.ok) logger.warn({ reason: result.reason }, "callback reply failed");
+        const groupMembers = await listGroupMembers(db as any, synth.groupId!);
+        const ctx: HandlerContext = { db, llm, model, msg: synth, groupMembers };
+
+        // Call handlePaid directly with the parsed command (skipping parser since we know the shape).
+        const { handlePaid } = await import("./handlers/paid.js");
+        const replies = await handlePaid(ctx, { command: "paid", toUserId: creditorId, amountPaise });
+        for (const r of replies) {
+          const result = await tg.send(r.to, r.text, r.replyToRawId, r.keyboard);
+          if (!result.ok) logger.warn({ reason: result.reason }, "callback reply failed");
+        }
+        return;
+      }
+
+      if (kind === "equal" && rest.length === 1) {
+        const draftId = parseInt(rest[0]!, 10);
+        if (Number.isNaN(draftId)) return;
+        const groupId = event.chatId;
+
+        // Auto-track tapper as a user/group member (matches message handler).
+        await upsertUser(db as any, { id: event.fromUserId, displayName: event.fromDisplayName });
+        await upsertGroup(db as any, { id: groupId, name: "Group" });
+        await recordGroupMember(db as any, groupId, event.fromUserId);
+
+        const drafts = await listPendingDraftsInGroup(db as any, groupId);
+        const draft = drafts.find((d) => d.id === draftId);
+        if (!draft) {
+          await tg.send(groupId, "That bill is no longer available.");
+          return;
+        }
+
+        const groupMembers = await listGroupMembers(db as any, groupId);
+        if (groupMembers.length === 0) {
+          await tg.send(groupId, "I don't know anyone in this group yet — get others to send a message first.");
+          return;
+        }
+
+        const assignments = equalSplit({ bill: draft.bill, participants: groupMembers });
+        // Tapping = "I covered this" — attribute the expense to the tapper.
+        const expenseId = await createExpenseWithSplits(db as any, {
+          groupId,
+          paidByUserId: event.fromUserId,
+          amountPaise: draft.bill.totalPaise,
+          description: draft.bill.items.map((i) => i.name).slice(0, 3).join(", ") || "bill",
+          source: "image",
+          draftId: draft.id,
+          splits: assignments.map((a) => ({ userId: a.userId, sharePaise: a.sharePaise })),
+        });
+        await markDraftAssigned(db as any, draft.id, expenseId);
+
+        const lines = [`✅ Split ${rupees(draft.bill.totalPaise)} equally across ${groupMembers.length}:`];
+        for (const a of assignments) {
+          const m = groupMembers.find((x) => x.userId === a.userId);
+          lines.push(`• ${m?.displayName ?? a.userId}: ${rupees(a.sharePaise)}`);
+        }
+        await tg.send(groupId, lines.join("\n"));
+        return;
+      }
+
+      if (kind === "del" && rest.length === 1) {
+        const expenseId = parseInt(rest[0]!, 10);
+        if (Number.isNaN(expenseId)) return;
+        const ok = await deleteExpense(db as any, expenseId);
+        if (ok) {
+          await tg.send(event.chatId, `🗑 Deleted expense #${expenseId}.`);
+        } else {
+          await tg.send(event.chatId, "That expense is already gone.");
+        }
+        return;
       }
     } catch (err) {
       logger.error({ err }, "callback processing error");

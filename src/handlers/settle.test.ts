@@ -47,6 +47,54 @@ describe("handleSettle", () => {
     expect(replies[0]!.text).toContain("anu%40okhdfc");
   });
 
+  it("attaches an inline keyboard with a tap-to-pay UPI URL button when creditor has UPI", async () => {
+    const ctx: HandlerContext = {
+      db: db as any,
+      llm: { messages: { create: vi.fn() } },
+      model: "test-model",
+      msg: { kind: "text", groupId: "g1", senderId: "+b", senderDisplayName: "Beta", text: "/settle", receivedAt: new Date(), rawId: "1" },
+      groupMembers: [{ userId: "+a", displayName: "Anu" }, { userId: "+b", displayName: "Beta" }],
+    };
+    const replies = await handleSettle(ctx);
+    expect(replies[0]!.keyboard).toBeDefined();
+    expect(replies[0]!.keyboard).toHaveLength(1);
+    const btn = replies[0]!.keyboard![0]![0]!;
+    expect(btn.text).toMatch(/^Pay Anu/);
+    expect(btn.url).toMatch(/^upi:\/\/pay\?/);
+    expect(btn.url).toContain("anu%40okhdfc");
+    expect(btn.callbackData).toBeUndefined();
+  });
+
+  it("omits the keyboard when no creditor has UPI", async () => {
+    await upsertUser(db, { id: "+c", displayName: "Cee" });
+    await createExpenseWithSplits(db as any, {
+      groupId: "g1", paidByUserId: "+c", amountPaise: 200,
+      description: "y", source: "slash", draftId: null,
+      splits: [{ userId: "+c", sharePaise: 100 }, { userId: "+b", sharePaise: 100 }],
+    });
+    // +b owes +a (has UPI) AND +c (no UPI) — only +a's button should be in keyboard
+    // Use a fresh debtor so only +c (no UPI) is the creditor:
+    const db2 = makeTestDb();
+    await upsertGroup(db2, { id: "g1", name: "G" });
+    await upsertUser(db2, { id: "+c", displayName: "Cee" });
+    await upsertUser(db2, { id: "+b", displayName: "Beta" });
+    await createExpenseWithSplits(db2 as any, {
+      groupId: "g1", paidByUserId: "+c", amountPaise: 200,
+      description: "y", source: "slash", draftId: null,
+      splits: [{ userId: "+c", sharePaise: 100 }, { userId: "+b", sharePaise: 100 }],
+    });
+    const ctx: HandlerContext = {
+      db: db2 as any,
+      llm: { messages: { create: vi.fn() } },
+      model: "test-model",
+      msg: { kind: "text", groupId: "g1", senderId: "+b", senderDisplayName: "Beta", text: "/settle", receivedAt: new Date(), rawId: "1" },
+      groupMembers: [{ userId: "+b", displayName: "Beta" }, { userId: "+c", displayName: "Cee" }],
+    };
+    const replies = await handleSettle(ctx);
+    expect(replies[0]!.text).toMatch(/Cee.*no UPI/);
+    expect(replies[0]!.keyboard).toBeUndefined();
+  });
+
   it("notes when creditor has no UPI", async () => {
     await upsertUser(db, { id: "+c", displayName: "Cee" });
     await createExpenseWithSplits(db as any, {

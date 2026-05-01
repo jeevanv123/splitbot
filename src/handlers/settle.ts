@@ -1,4 +1,5 @@
 import type { HandlerContext, HandlerResult } from "./context.js";
+import type { InlineKeyboardButton } from "../types/messages.js";
 import { netBalances } from "../repo/splits.js";
 import { simplify } from "../services/split/simplify.js";
 import { getUser } from "../repo/users.js";
@@ -9,6 +10,14 @@ function rupees(paise: number): string {
   return `₹${r}`;
 }
 
+// NOTE on URL buttons + UPI deep-links: Telegram inline-keyboard `url` buttons
+// open `upi://pay?...` reliably in Telegram for Android (where most Indian users
+// are). On iOS, Telegram historically has been stricter about non-https URL
+// buttons; tap behavior may not auto-launch the UPI app. As a fallback we ALSO
+// keep the raw `upi://pay?...` link inline in the message text — Telegram
+// auto-detects the scheme in plain text and renders it as a tappable link on iOS.
+// So: button-tap users get one-tap pay (Android), and text-link users get the
+// same affordance (iOS) without any extra UX cost.
 export async function handleSettle(ctx: HandlerContext): Promise<HandlerResult> {
   if (!ctx.msg.groupId) {
     return [{ to: ctx.msg.senderId, text: "Use /settle inside a group." }];
@@ -24,15 +33,23 @@ export async function handleSettle(ctx: HandlerContext): Promise<HandlerResult> 
   }
 
   const lines: string[] = [];
+  const keyboard: InlineKeyboardButton[][] = [];
+
   if (myDebts.length > 0) {
     lines.push("You owe:");
     for (const d of myDebts) {
       const creditor = await getUser(ctx.db as any, d.toUserId);
+      const creditorName = creditor?.displayName ?? d.toUserId;
       if (creditor?.upiId) {
         const link = buildUpiLink({ pa: creditor.upiId, amPaise: d.amountPaise, tn: "Splitbot" });
-        lines.push(`• ${rupees(d.amountPaise)} to ${creditor.displayName} — ${link}`);
+        // Inline link in body (works on iOS as a tappable text link), plus a button (works on Android).
+        lines.push(`• ${rupees(d.amountPaise)} to ${creditorName} — ${link}`);
+        keyboard.push([{
+          text: `Pay ${creditorName} ${rupees(d.amountPaise)}`,
+          url: link,
+        }]);
       } else {
-        lines.push(`• ${rupees(d.amountPaise)} to ${creditor?.displayName ?? d.toUserId} — (no UPI; ask them to /upi)`);
+        lines.push(`• ${rupees(d.amountPaise)} to ${creditorName} — (no UPI; ask them to /upi)`);
       }
     }
   }
@@ -45,5 +62,10 @@ export async function handleSettle(ctx: HandlerContext): Promise<HandlerResult> 
     lines.push("(Once they pay, send /paid @them <amount> to mark settled.)");
   }
 
-  return [{ to: ctx.msg.senderId, text: lines.join("\n") }];
+  const out: HandlerResult = [{
+    to: ctx.msg.senderId,
+    text: lines.join("\n"),
+    ...(keyboard.length > 0 ? { keyboard } : {}),
+  }];
+  return out;
 }

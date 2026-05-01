@@ -50,6 +50,12 @@ describe("handleImage", () => {
     expect(replies[0]!.text).toContain("pasta");
     const drafts = await listPendingDraftsInGroup(db as any, "g1");
     expect(drafts).toHaveLength(1);
+    // Equal-split button is attached
+    expect(replies[0]!.keyboard).toBeDefined();
+    expect(replies[0]!.keyboard).toHaveLength(1);
+    const btn = replies[0]!.keyboard![0]![0]!;
+    expect(btn.text).toBe("Split equally");
+    expect(btn.callbackData).toBe(`equal:${drafts[0]!.id}`);
   });
 
   it("does not reply or create a draft when image is not a bill", async () => {
